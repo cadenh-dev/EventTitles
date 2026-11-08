@@ -45,6 +45,17 @@ display:
   # Tell a player in chat when they earn a new title (useful when show_to_self is false).
   announce_to_self: true
 
+tab_list:
+  # Show each player's title next to their name in the tab (player list) screen.
+  # Note: tab-list plugins like TAB or other nametag plugins may overwrite this name.
+  enabled: true
+
+  # MiniMessage format; must contain <player> and <title>.
+  format: "<white><player></white> <dark_gray>|</dark_gray> <title>"
+
+  # Visible characters of the title shown in tab (keeps the list narrow). -1 = no limit.
+  max_title_length: 24
+
 chat:
   # Let the LLM post a witty one-liner in chat about each event it titles (same API call, no extra cost).
   # Static titles (LLM off, failed, or boss short-circuit) post nothing.

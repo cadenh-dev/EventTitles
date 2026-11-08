@@ -1,15 +1,19 @@
 package com.example.titles.display;
 
 import com.example.titles.api.AwardedTitle;
+import com.example.titles.api.TabListSettings;
 import com.example.titles.api.TitleDisplayService;
 import com.example.titles.api.TitleText;
 import com.example.titles.api.TitlesSettings;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -51,6 +55,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     private final NamespacedKey activePriorityKey;
     private final NamespacedKey displayOwnerKey;
     private final Map<UUID, TextDisplay> displays = new HashMap<>();
+    /** Players whose tab-list name this plugin has set (so only those are reset). */
+    private final Set<UUID> tabNamed = new HashSet<>();
     private BukkitTask followTask;
 
     public PaperTitleDisplayManager(Plugin plugin, Supplier<TitlesSettings> settings) {
@@ -74,8 +80,9 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         TextDisplay display = displays.get(player.getUniqueId());
         if (display != null && display.isValid() && display.getWorld().equals(player.getWorld())) {
             display.text(MiniMessage.miniMessage().deserialize(text));
+            updateTabName(player, text);
         } else {
-            refreshDisplay(player);
+            refreshDisplay(player); // also updates the tab name
         }
         if (settings.get().announceToSelf()) {
             // The owner usually can't see their own title (show_to_self: false), so tell them in chat.
@@ -89,12 +96,16 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         player.getPersistentDataContainer().remove(activeTitleKey);
         player.getPersistentDataContainer().remove(activePriorityKey);
         removeDisplay(player);
+        updateTabName(player, null);
     }
 
     @Override
     public void refreshDisplay(Player player) {
         removeDisplay(player); // always first: guarantees at most one display per player
         String text = player.getPersistentDataContainer().get(activeTitleKey, PersistentDataType.STRING);
+        if (player.isOnline()) {
+            updateTabName(player, text); // tab list keeps the title even while dead or spectating
+        }
         if (!player.isOnline() || player.isDead() || text == null
             || player.getGameMode() == GameMode.SPECTATOR) { // spectators are invisible; don't out them
             return;
@@ -167,7 +178,39 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
                 }
             }
         }
+        // Hand tab-list names back to vanilla (or other plugins) on disable/reload.
+        for (UUID id : Set.copyOf(tabNamed)) {
+            Player player = Bukkit.getPlayer(id);
+            if (player != null) {
+                player.playerListName(null);
+            }
+        }
+        tabNamed.clear();
         stopFollowTaskIfIdle();
+    }
+
+    /**
+     * Shows the title next to the player's name in the tab list. {@code titleText == null} or a
+     * disabled {@code tab_list} restores the default name, but only if this plugin set it, so other
+     * plugins' tab-list names are never clobbered.
+     */
+    private void updateTabName(Player player, String titleText) {
+        TabListSettings tab = settings.get().tabList();
+        if (!tab.enabled() || titleText == null) {
+            if (tabNamed.remove(player.getUniqueId())) {
+                player.playerListName(null);
+            }
+            return;
+        }
+        try {
+            Component title = MiniMessage.miniMessage().deserialize(
+                TitleText.truncateVisible(titleText, tab.maxTitleLength()));
+            player.playerListName(MiniMessage.miniMessage().deserialize(tab.format(),
+                Placeholder.component("title", title), Placeholder.unparsed("player", player.getName())));
+            tabNamed.add(player.getUniqueId());
+        } catch (RuntimeException malformed) {
+            plugin.getLogger().warning("Invalid tab_list.format; leaving the tab name unchanged.");
+        }
     }
 
     /** True for any TextDisplay created by this plugin (tracked or stray). */

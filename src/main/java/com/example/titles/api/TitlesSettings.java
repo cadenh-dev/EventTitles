@@ -23,7 +23,8 @@ public record TitlesSettings(
     double displayOffsetY,
     boolean showToSelf,
     boolean announceToSelf,
-    ChatSettings chat
+    ChatSettings chat,
+    TabListSettings tabList
 ) {
     public static final String PLACEHOLDER_KEY = "sk-your-deepseek-key-here";
     /** Blocks above the top of the player's hitbox; vanilla draws the nametag at about +0.5. */
@@ -36,6 +37,19 @@ public record TitlesSettings(
         if (chat == null) {
             chat = ChatSettings.defaults();
         }
+        if (tabList == null) {
+            tabList = TabListSettings.defaults();
+        }
+    }
+
+    /** Tab-list options at their defaults. */
+    public TitlesSettings(boolean llmEnabled, LlmProvider llmProvider, String llmEndpoint, String llmModel,
+                          String llmApiKey, int llmTimeoutSeconds, double llmTemperature, int maxTitleLength,
+                          int streakWindowMinutes, String defaultTitle, double displayOffsetY, boolean showToSelf,
+                          boolean announceToSelf, ChatSettings chat) {
+        this(llmEnabled, llmProvider, llmEndpoint, llmModel, llmApiKey, llmTimeoutSeconds, llmTemperature,
+            maxTitleLength, streakWindowMinutes, defaultTitle, displayOffsetY, showToSelf, announceToSelf, chat,
+            TabListSettings.defaults());
     }
 
     /** Display and chat options at their defaults (offset 0.8, hidden from owner, owner notified). */
@@ -44,7 +58,7 @@ public record TitlesSettings(
                           int streakWindowMinutes, String defaultTitle) {
         this(llmEnabled, llmProvider, llmEndpoint, llmModel, llmApiKey, llmTimeoutSeconds, llmTemperature,
             maxTitleLength, streakWindowMinutes, defaultTitle, DEFAULT_DISPLAY_OFFSET_Y, false, true,
-            ChatSettings.defaults());
+            ChatSettings.defaults(), TabListSettings.defaults());
     }
 
     public static TitlesSettings defaults() {

@@ -4,6 +4,7 @@ import com.example.titles.api.ChatSettings;
 import com.example.titles.api.LlmProvider;
 import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.StreakService;
+import com.example.titles.api.TabListSettings;
 import com.example.titles.api.TitleDisplayService;
 import com.example.titles.api.TitleResolverService;
 import com.example.titles.api.TitlesSettings;
@@ -107,7 +108,8 @@ public final class TitlesPlugin extends JavaPlugin {
             Math.clamp(c.getDouble("display.offset_y", d.displayOffsetY()), -2.0, 5.0),
             c.getBoolean("display.show_to_self", d.showToSelf()),
             c.getBoolean("display.announce_to_self", d.announceToSelf()),
-            loadChat(c, d.chat()));
+            loadChat(c, d.chat()),
+            loadTabList(c, d.tabList()));
         settings.set(loaded);
         if (loaded.llmEnabled() && loaded.effectiveApiKey() == null) {
             getLogger().warning("llm.enabled is true but no " + provider.configId() + " API key is configured (set "
@@ -115,6 +117,19 @@ public final class TitlesPlugin extends JavaPlugin {
         } else if (loaded.llmEnabled()) {
             getLogger().info("LLM provider: " + provider.configId() + " (" + loaded.llmModel() + ")");
         }
+    }
+
+    private TabListSettings loadTabList(FileConfiguration c, TabListSettings d) {
+        String format = c.getString("tab_list.format", d.format());
+        if (format == null || !format.contains(TabListSettings.TITLE_TOKEN)
+            || !format.contains(TabListSettings.PLAYER_TOKEN)) {
+            getLogger().warning("tab_list.format must contain " + TabListSettings.PLAYER_TOKEN + " and "
+                + TabListSettings.TITLE_TOKEN + "; using the default.");
+        }
+        return new TabListSettings(
+            c.getBoolean("tab_list.enabled", d.enabled()),
+            format,
+            c.getInt("tab_list.max_title_length", d.maxTitleLength()));
     }
 
     private ChatSettings loadChat(FileConfiguration c, ChatSettings d) {
