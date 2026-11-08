@@ -14,6 +14,8 @@ above their head and shows in chat and the tab list. Die to three creepers in a 
   wears off on a timer.
 - **Shown everywhere:** a floating title above the head, chat messages (`Creeper Magnet Caden: hi`),
   and the tab list. Hover a title in chat to see *why* the player got it.
+- **Update notifications:** checks this repo's Releases and tells admins when a new version is out;
+  optional verified auto-download that installs on the next restart (`updates.auto_download`).
 - **Safe for your world:** it only writes three of its own `eventtitles:*` keys to player data, and the
   floating displays are never saved to disk.
 

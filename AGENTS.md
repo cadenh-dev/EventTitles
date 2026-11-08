@@ -102,3 +102,12 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
   ConcurrentHashMap mirror of PDC maintained on the main thread) — never PDC or other player state.
 - `display.interpolation_ticks` (default 3, clamped 0–10) matches the client's remote-player smoothing so
   the follow-loop title moves in step with the player.
+
+## 13. Releases & updates
+- Release = push a `vX.Y.Z` tag. `.github/workflows/release.yml` builds with `-PreleaseVersion=X.Y.Z`
+  and attaches `EventTitles-X.Y.Z.jar` + `EventTitles-X.Y.Z.jar.sha256`. CI (`ci.yml`) tests every push/PR.
+- `update/GitHubReleaseClient` + `update/Versions` are Bukkit-free and blocking (async callers only). Downloads
+  are HTTPS + GitHub hosts only, size-capped, and must match the release's SHA-256 before being moved into
+  place. Releases without a `.sha256` asset are never offered.
+- `update/UpdateService` notifies `titles.admin` by default; with `updates.auto_download: true` it saves the
+  verified jar into Paper's update folder under the running jar's file name (installed on next restart).

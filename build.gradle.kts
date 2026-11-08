@@ -3,7 +3,8 @@ plugins {
 }
 
 group = "com.example.titles"
-version = "1.0.0"
+// Release builds pass -PreleaseVersion=<tag without v> (see .github/workflows/release.yml).
+version = (findProperty("releaseVersion") as String?)?.takeIf { it.isNotBlank() } ?: "1.0.0"
 
 repositories {
     mavenCentral()

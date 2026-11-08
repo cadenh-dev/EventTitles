@@ -19,6 +19,7 @@ import com.example.titles.listeners.ChatTitleListener;
 import com.example.titles.listeners.CommentaryBroadcaster;
 import com.example.titles.listeners.GameplayEventCollector;
 import com.example.titles.llm.ChatCompletionsTitleClient;
+import com.example.titles.update.UpdateService;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -33,6 +34,9 @@ public final class TitlesPlugin extends JavaPlugin {
 
     private final AtomicReference<TitlesSettings> settings = new AtomicReference<>(TitlesSettings.defaults());
     private TitleDisplayService displayService;
+    private final AtomicReference<UpdateService.Settings> updateSettings =
+        new AtomicReference<>(UpdateService.Settings.defaults());
+    private UpdateService updateService;
 
     @Override
     public void onEnable() {
@@ -57,11 +61,18 @@ public final class TitlesPlugin extends JavaPlugin {
                 reloadSettings();
                 // Display options (offset, show_to_self) are applied at spawn, so rebuild live displays.
                 Bukkit.getOnlinePlayers().forEach(displayService::refreshDisplay);
+                updateService.start(); // picks up updates.* changes
             }));
 
         // StreakTracker is Bukkit-free and thread-safe, so purging off the main thread is allowed.
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, streakTracker::purgeExpired,
             STREAK_PURGE_PERIOD_TICKS, STREAK_PURGE_PERIOD_TICKS);
+
+        // GitHub release checks (async). Saves verified updates under this jar's file name in Paper's
+        // update folder, which Paper installs on the next restart.
+        updateService = new UpdateService(this, updateSettings::get, getFile());
+        pm.registerEvents(updateService, this);
+        updateService.start();
 
         // Restore displays for players already online (e.g. after a /reload or plugin manager load).
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -75,6 +86,9 @@ public final class TitlesPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (updateService != null) {
+            updateService.stop();
+        }
         if (displayService != null) {
             displayService.cleanupAll();
         }
@@ -116,6 +130,16 @@ public final class TitlesPlugin extends JavaPlugin {
             loadChatPrefix(c, d.chatPrefix()),
             c.getInt("display.interpolation_ticks", d.displayInterpolationTicks()));
         settings.set(loaded);
+        UpdateService.Settings ud = UpdateService.Settings.defaults();
+        String repository = c.getString("updates.repository", ud.repository());
+        if (!com.example.titles.update.GitHubReleaseClient.isValidRepository(repository)) {
+            getLogger().warning("updates.repository must look like owner/name; using " + ud.repository() + ".");
+        }
+        updateSettings.set(new UpdateService.Settings(
+            c.getBoolean("updates.enabled", ud.enabled()),
+            repository,
+            c.getBoolean("updates.auto_download", ud.autoDownload()),
+            c.getInt("updates.check_interval_hours", ud.checkIntervalHours())));
         if (loaded.llmEnabled() && loaded.effectiveApiKey() == null) {
             getLogger().warning("llm.enabled is true but no " + provider.configId() + " API key is configured (set "
                 + section + "api_key or " + provider.apiKeyEnv() + "); using static titles only.");
