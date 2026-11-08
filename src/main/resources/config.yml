@@ -92,6 +92,13 @@ chat:
   # MiniMessage format. Must contain <comment>; <player> is also available.
   format: "<dark_gray>[<gold>EventTitles</gold>]</dark_gray> <gray><comment></gray>"
 
+history:
+  # Keep a log of every title each player receives; anyone can view it with /title history [player].
+  # Stored as plugins/EventTitles/history/<uuid>.json (works for offline players too).
+  # Turning this on/off needs a restart; max_entries applies on /title reload.
+  enabled: true
+  max_entries: 50
+
 updates:
   # Check GitHub Releases for new EventTitles versions (async; admins are told in chat on join).
   enabled: true

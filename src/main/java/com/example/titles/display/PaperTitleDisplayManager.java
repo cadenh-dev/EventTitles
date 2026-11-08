@@ -3,6 +3,7 @@ package com.example.titles.display;
 import com.example.titles.api.AwardedTitle;
 import com.example.titles.api.TabListSettings;
 import com.example.titles.api.TitleDisplayService;
+import com.example.titles.api.TitleHistory;
 import com.example.titles.api.TitleText;
 import com.example.titles.api.TitlesSettings;
 import java.util.ArrayList;
@@ -61,10 +62,17 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     /** Thread-safe mirror of each online player's PDC title, for async readers (chat rendering). */
     private final Map<UUID, AwardedTitle> titleCache = new ConcurrentHashMap<>();
     private BukkitTask followTask;
+    private final TitleHistory history;
 
     public PaperTitleDisplayManager(Plugin plugin, Supplier<TitlesSettings> settings) {
+        this(plugin, settings, null);
+    }
+
+    /** {@code history} may be null (history disabled). */
+    public PaperTitleDisplayManager(Plugin plugin, Supplier<TitlesSettings> settings, TitleHistory history) {
         this.plugin = plugin;
         this.settings = settings;
+        this.history = history;
         this.activeTitleKey = new NamespacedKey(plugin, "active_title");
         this.activePriorityKey = new NamespacedKey(plugin, "active_priority");
         this.activeReasonKey = new NamespacedKey(plugin, "active_reason");
@@ -87,6 +95,10 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         }
         titleCache.put(player.getUniqueId(), new AwardedTitle(text, title.priority(), title.fromLlm(), null,
             title.reason()));
+        if (history != null) {
+            history.record(player.getUniqueId(), new TitleHistory.Entry(text, title.priority(),
+                TitleHistory.sourceOf(title), title.reason(), System.currentTimeMillis()));
+        }
 
         TextDisplay display = displays.get(player.getUniqueId());
         if (display != null && display.isValid() && display.getWorld().equals(player.getWorld())) {

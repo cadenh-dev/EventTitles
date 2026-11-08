@@ -6,12 +6,14 @@ import com.example.titles.api.EventContext;
 import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.TitleDisplayService;
 import com.example.titles.api.TitleText;
+import com.example.titles.api.TitleHistory;
 import com.example.titles.api.TitlesSettings;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -30,7 +32,7 @@ import org.bukkit.plugin.Plugin;
 /** Administrative commands for setting, clearing, and inspecting event titles. */
 public final class TitleAdminCommand implements CommandExecutor, TabCompleter, BasicCommand {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
-    private static final List<String> SUBCOMMANDS = List.of("info", "set", "clear", "reload", "testllm");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "set", "clear", "reload", "testllm");
     private static final List<String> PRIORITIES = List.of("10", "50", "90", "100");
 
     private final Plugin plugin;
@@ -38,9 +40,18 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
     private final LlmTitleGenerator llm;
     private final Supplier<TitlesSettings> settings;
     private final Runnable reloadAction;
+    private final TitleHistory history;
+    private static final int HISTORY_PAGE_SIZE = 8;
 
     public TitleAdminCommand(Plugin plugin, TitleDisplayService displays, LlmTitleGenerator llm,
                              Supplier<TitlesSettings> settings, Runnable reloadAction) {
+        this(plugin, displays, llm, settings, reloadAction, null);
+    }
+
+    /** {@code history} may be null (history disabled). */
+    public TitleAdminCommand(Plugin plugin, TitleDisplayService displays, LlmTitleGenerator llm,
+                             Supplier<TitlesSettings> settings, Runnable reloadAction, TitleHistory history) {
+        this.history = history;
         this.plugin = plugin;
         this.displays = displays;
         this.llm = llm;
@@ -83,9 +94,14 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             handleInfo(sender, args);
             return;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("history")) {
+            handleHistory(sender, args);
+            return;
+        }
         if (!sender.hasPermission(ADMIN_PERMISSION)) {
             if (args.length == 0 && sender.hasPermission(INFO_PERMISSION)) {
-                sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> info \\<player>",
+                sender.sendMessage(MINI_MESSAGE.deserialize(
+                    "<yellow>/<label> info [player]</yellow>  <yellow>/<label> history [player] [page]",
                     Placeholder.unparsed("label", label)));
                 return;
             }
@@ -110,6 +126,115 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             case "testllm" -> handleTestLlm(sender, args);
             default -> sendHelp(sender, label);
         }
+    }
+
+    /** /title history [player] [page]: a player's past titles, newest first; works for offline players. */
+    private void handleHistory(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(INFO_PERMISSION)) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>You do not have permission to use this command."));
+            return;
+        }
+        if (history == null) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<gray>Title history is turned off on this server."));
+            return;
+        }
+        String name = null;
+        int page = 1;
+        for (int i = 1; i < args.length && i <= 2; i++) {
+            if (args[i].matches("\\d{1,4}")) {
+                page = Math.max(1, Integer.parseInt(args[i]));
+            } else if (name == null) {
+                name = args[i];
+            }
+        }
+        UUID targetId;
+        String targetName;
+        if (name == null) {
+            if (!(sender instanceof Player self)) {
+                sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title history \\<player> [page]"));
+                return;
+            }
+            targetId = self.getUniqueId();
+            targetName = self.getName();
+        } else {
+            Player online = Bukkit.getPlayerExact(name);
+            org.bukkit.OfflinePlayer known = online != null ? online : Bukkit.getOfflinePlayerIfCached(name);
+            if (known == null) {
+                sendNamed(sender, "<red><player> has never played on this server.", name);
+                return;
+            }
+            targetId = known.getUniqueId();
+            targetName = known.getName() == null ? name : known.getName();
+        }
+        final int requestedPage = page;
+        history.load(targetId).whenComplete((entries, error) -> {
+            if (!plugin.isEnabled()) {
+                return;
+            }
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (sender instanceof Player p && !p.isOnline()) {
+                    return;
+                }
+                showHistoryPage(sender, targetName, entries == null ? List.of() : entries, requestedPage);
+            });
+        });
+    }
+
+    private void showHistoryPage(CommandSender sender, String targetName, List<TitleHistory.Entry> entries, int page) {
+        if (entries.isEmpty()) {
+            sendNamed(sender, "<gray><player> has no title history yet.", targetName);
+            return;
+        }
+        int pages = (entries.size() + HISTORY_PAGE_SIZE - 1) / HISTORY_PAGE_SIZE;
+        int current = Math.min(page, pages);
+        sender.sendMessage(MINI_MESSAGE.deserialize(
+            "<gold><player>'s titles</gold> <dark_gray>(<count> total · page <page>/<pages> · hover for why)</dark_gray>",
+            Placeholder.unparsed("player", targetName),
+            Placeholder.unparsed("count", Integer.toString(entries.size())),
+            Placeholder.unparsed("page", Integer.toString(current)),
+            Placeholder.unparsed("pages", Integer.toString(pages))));
+        long now = System.currentTimeMillis();
+        int start = (current - 1) * HISTORY_PAGE_SIZE;
+        for (int i = start; i < Math.min(entries.size(), start + HISTORY_PAGE_SIZE); i++) {
+            TitleHistory.Entry e = entries.get(i);
+            String when = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+                .withZone(java.time.ZoneId.systemDefault()).format(java.time.Instant.ofEpochMilli(e.awardedAtMillis()));
+            String reason = (e.reason() == null ? "" : e.reason() + "\n") + "Awarded: " + when;
+            Component title;
+            try {
+                title = com.example.titles.display.TitleHover.titleWithReason(e.title(), reason);
+            } catch (RuntimeException malformed) {
+                continue;
+            }
+            sender.sendMessage(MINI_MESSAGE.deserialize(
+                "<dark_gray><n>.</dark_gray> <title> <dark_gray>· <source> · <ago></dark_gray>",
+                Placeholder.unparsed("n", Integer.toString(i + 1)),
+                Placeholder.component("title", title),
+                Placeholder.unparsed("source", e.source() == null ? "?" : e.source()),
+                Placeholder.unparsed("ago", ago(now - e.awardedAtMillis()))));
+        }
+        if (current < pages) {
+            String next = "/title history " + targetName + " " + (current + 1);
+            sender.sendMessage(Component.text("[Next page]", net.kyori.adventure.text.format.NamedTextColor.AQUA)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(next))
+                .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(Component.text(next))));
+        }
+    }
+
+    /** "just now", "5m ago", "3h ago", "2d ago". */
+    static String ago(long millis) {
+        long minutes = Math.max(0, millis) / 60_000L;
+        if (minutes < 1) {
+            return "just now";
+        }
+        if (minutes < 60) {
+            return minutes + "m ago";
+        }
+        long hours = minutes / 60;
+        if (hours < 48) {
+            return hours + "h ago";
+        }
+        return (hours / 24) + "d ago";
     }
 
     /** /title info [player]: shows a player's current title; hover it for the reason. */
@@ -287,7 +412,8 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             return matching(SUBCOMMANDS, args[0]);
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("clear")
-            || args[0].equalsIgnoreCase("testllm") || args[0].equalsIgnoreCase("info"))) {
+            || args[0].equalsIgnoreCase("testllm") || args[0].equalsIgnoreCase("info")
+            || args[0].equalsIgnoreCase("history"))) {
             List<String> names = new ArrayList<>();
             for (Player player : Bukkit.getOnlinePlayers()) {
                 names.add(player.getName());
@@ -312,6 +438,8 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
     private static void sendHelp(CommandSender sender, String label) {
         sender.sendMessage(MINI_MESSAGE.deserialize("<gold>EventTitles commands</gold>"));
         sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> info [player]",
+            Placeholder.unparsed("label", label)));
+        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> history [player] [page]",
             Placeholder.unparsed("label", label)));
         sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> set \\<player> \\<priority> \\<miniMessage...>",
             Placeholder.unparsed("label", label)));

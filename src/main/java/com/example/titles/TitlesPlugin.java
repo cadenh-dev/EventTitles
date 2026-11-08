@@ -19,6 +19,7 @@ import com.example.titles.listeners.ChatTitleListener;
 import com.example.titles.listeners.CommentaryBroadcaster;
 import com.example.titles.listeners.GameplayEventCollector;
 import com.example.titles.llm.ChatCompletionsTitleClient;
+import com.example.titles.history.JsonTitleHistoryStore;
 import com.example.titles.update.UpdateService;
 import java.util.Arrays;
 import java.util.List;
@@ -37,6 +38,7 @@ public final class TitlesPlugin extends JavaPlugin {
     private final AtomicReference<UpdateService.Settings> updateSettings =
         new AtomicReference<>(UpdateService.Settings.defaults());
     private UpdateService updateService;
+    private JsonTitleHistoryStore historyStore;
 
     @Override
     public void onEnable() {
@@ -48,7 +50,11 @@ public final class TitlesPlugin extends JavaPlugin {
         LlmTitleGenerator llm = new ChatCompletionsTitleClient(settings::get);
         StaticTitleRegistry registry = new StaticTitleRegistry();
         TitleResolverService resolver = new HybridTitleResolver(registry, llm, settings::get);
-        displayService = new PaperTitleDisplayManager(this, settings::get);
+        if (getConfig().getBoolean("history.enabled", true)) {
+            historyStore = new JsonTitleHistoryStore(getDataFolder().toPath().resolve("history"),
+                () -> Math.clamp(getConfig().getInt("history.max_entries", 50), 1, 500), getLogger());
+        }
+        displayService = new PaperTitleDisplayManager(this, settings::get, historyStore);
 
         var pm = getServer().getPluginManager();
         pm.registerEvents(new DisplayLifecycleListener(this, displayService), this);
@@ -62,7 +68,7 @@ public final class TitlesPlugin extends JavaPlugin {
                 // Display options (offset, show_to_self) are applied at spawn, so rebuild live displays.
                 Bukkit.getOnlinePlayers().forEach(displayService::refreshDisplay);
                 updateService.start(); // picks up updates.* changes
-            }));
+            }, historyStore));
 
         // StreakTracker is Bukkit-free and thread-safe, so purging off the main thread is allowed.
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, streakTracker::purgeExpired,
@@ -91,6 +97,9 @@ public final class TitlesPlugin extends JavaPlugin {
         }
         if (displayService != null) {
             displayService.cleanupAll();
+        }
+        if (historyStore != null) {
+            historyStore.close(); // flush pending history writes
         }
     }
 

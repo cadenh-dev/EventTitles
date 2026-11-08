@@ -111,3 +111,11 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
   place. Releases without a `.sha256` asset are never offered.
 - `update/UpdateService` notifies `titles.admin` by default; with `updates.auto_download: true` it saves the
   verified jar into Paper's update folder under the running jar's file name (installed on next restart).
+
+## 14. Title history
+- `api/TitleHistory` + `history/JsonTitleHistoryStore` (Bukkit-free): `plugins/EventTitles/history/<uuid>.json`,
+  newest first, capped by `history.max_entries`. All file I/O runs on ONE dedicated thread (ordered, never the
+  main thread); writes are temp-file + atomic move; file names come only from UUIDs.
+- `PaperTitleDisplayManager` records only titles that were actually applied (passed priority gating).
+- `/title history [player] [page]` (`titles.info`) resolves offline players via `Bukkit#getOfflinePlayerIfCached`
+  (no web lookups), loads async, renders on the main thread.
