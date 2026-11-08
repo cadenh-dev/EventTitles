@@ -204,6 +204,13 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
                 sender.sendMessage(MINI_MESSAGE.deserialize("<gray>Preview: <preview> <dark_gray>(priority <priority>)</dark_gray>",
                     Placeholder.component("preview", preview),
                     Placeholder.unparsed("priority", Integer.toString(title.priority()))));
+                if (title.comment() != null) {
+                    sender.sendMessage(MINI_MESSAGE.deserialize("<gray>Chat comment: <comment>",
+                        Placeholder.component("comment", com.example.titles.listeners.CommentaryBroadcaster
+                            .preview(title.comment(), player.getName()))));
+                } else {
+                    sender.sendMessage(MINI_MESSAGE.deserialize("<dark_gray>(no chat comment returned)"));
+                }
                 if (player.isOnline()) {
                     displays.setPlayerTitle(player, title);
                 }

@@ -22,7 +22,8 @@ public record TitlesSettings(
     String defaultTitle,
     double displayOffsetY,
     boolean showToSelf,
-    boolean announceToSelf
+    boolean announceToSelf,
+    ChatSettings chat
 ) {
     public static final String PLACEHOLDER_KEY = "sk-your-deepseek-key-here";
     /** Blocks above the top of the player's hitbox; vanilla draws the nametag at about +0.5. */
@@ -32,14 +33,18 @@ public record TitlesSettings(
         if (llmProvider == null) {
             llmProvider = LlmProvider.DEEPSEEK;
         }
+        if (chat == null) {
+            chat = ChatSettings.defaults();
+        }
     }
 
-    /** Display options at their defaults (offset 0.8, hidden from owner, owner notified). */
+    /** Display and chat options at their defaults (offset 0.8, hidden from owner, owner notified). */
     public TitlesSettings(boolean llmEnabled, LlmProvider llmProvider, String llmEndpoint, String llmModel,
                           String llmApiKey, int llmTimeoutSeconds, double llmTemperature, int maxTitleLength,
                           int streakWindowMinutes, String defaultTitle) {
         this(llmEnabled, llmProvider, llmEndpoint, llmModel, llmApiKey, llmTimeoutSeconds, llmTemperature,
-            maxTitleLength, streakWindowMinutes, defaultTitle, DEFAULT_DISPLAY_OFFSET_Y, false, true);
+            maxTitleLength, streakWindowMinutes, defaultTitle, DEFAULT_DISPLAY_OFFSET_Y, false, true,
+            ChatSettings.defaults());
     }
 
     public static TitlesSettings defaults() {

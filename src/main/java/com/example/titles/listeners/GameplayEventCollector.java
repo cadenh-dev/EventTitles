@@ -52,12 +52,16 @@ public final class GameplayEventCollector implements Listener {
     private final StreakService streaks;
     private final Map<UUID, Long> lastClutchMillis = new ConcurrentHashMap<>();
 
+    private final CommentaryBroadcaster commentary;
+
     public GameplayEventCollector(Plugin plugin, TitleResolverService resolver,
-                                  TitleDisplayService displays, StreakService streaks) {
+                                  TitleDisplayService displays, StreakService streaks,
+                                  CommentaryBroadcaster commentary) {
         this.plugin = plugin;
         this.resolver = resolver;
         this.displays = displays;
         this.streaks = streaks;
+        this.commentary = commentary;
     }
 
     private EventContext snapshot(Player p, EventCategory cat, String subject, String extraMetadata) {
@@ -93,7 +97,11 @@ public final class GameplayEventCollector implements Listener {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 Player p = Bukkit.getPlayer(ctx.playerId());
                 if (p != null && p.isOnline() && opt != null) {
-                    opt.ifPresent(title -> displays.setPlayerTitle(p, title));
+                    opt.ifPresent(title -> {
+                        displays.setPlayerTitle(p, title);
+                        // Commentary reacts to the event itself, even if the title lost the priority check.
+                        commentary.broadcast(p, title);
+                    });
                 }
             });
         });
@@ -202,6 +210,7 @@ public final class GameplayEventCollector implements Listener {
         UUID id = event.getPlayer().getUniqueId();
         streaks.reset(id);
         lastClutchMillis.remove(id);
+        commentary.forget(id);
     }
 
     private static Entity resolveAttacker(Entity entity) {

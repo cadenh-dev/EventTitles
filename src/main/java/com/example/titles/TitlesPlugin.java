@@ -1,5 +1,6 @@
 package com.example.titles;
 
+import com.example.titles.api.ChatSettings;
 import com.example.titles.api.LlmProvider;
 import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.StreakService;
@@ -12,6 +13,7 @@ import com.example.titles.display.PaperTitleDisplayManager;
 import com.example.titles.engine.HybridTitleResolver;
 import com.example.titles.engine.StaticTitleRegistry;
 import com.example.titles.engine.StreakTracker;
+import com.example.titles.listeners.CommentaryBroadcaster;
 import com.example.titles.listeners.GameplayEventCollector;
 import com.example.titles.llm.ChatCompletionsTitleClient;
 import java.util.Arrays;
@@ -43,7 +45,8 @@ public final class TitlesPlugin extends JavaPlugin {
 
         var pm = getServer().getPluginManager();
         pm.registerEvents(new DisplayLifecycleListener(this, displayService), this);
-        pm.registerEvents(new GameplayEventCollector(this, resolver, displayService, streaks), this);
+        pm.registerEvents(new GameplayEventCollector(this, resolver, displayService, streaks,
+            new CommentaryBroadcaster(settings::get)), this);
 
         registerCommand("title", "Manage event titles", List.of("eventtitle"),
             new TitleAdminCommand(this, displayService, llm, settings::get, () -> {
@@ -103,7 +106,8 @@ public final class TitlesPlugin extends JavaPlugin {
             c.getString("fallbacks.default_title", d.defaultTitle()),
             Math.clamp(c.getDouble("display.offset_y", d.displayOffsetY()), -2.0, 5.0),
             c.getBoolean("display.show_to_self", d.showToSelf()),
-            c.getBoolean("display.announce_to_self", d.announceToSelf()));
+            c.getBoolean("display.announce_to_self", d.announceToSelf()),
+            loadChat(c, d.chat()));
         settings.set(loaded);
         if (loaded.llmEnabled() && loaded.effectiveApiKey() == null) {
             getLogger().warning("llm.enabled is true but no " + provider.configId() + " API key is configured (set "
@@ -111,6 +115,25 @@ public final class TitlesPlugin extends JavaPlugin {
         } else if (loaded.llmEnabled()) {
             getLogger().info("LLM provider: " + provider.configId() + " (" + loaded.llmModel() + ")");
         }
+    }
+
+    private ChatSettings loadChat(FileConfiguration c, ChatSettings d) {
+        String audienceName = c.getString("chat.audience", d.audience().name());
+        ChatSettings.Audience audience = ChatSettings.Audience.fromConfig(audienceName).orElseGet(() -> {
+            getLogger().warning("Unknown chat.audience '" + audienceName + "'; expected server, world, nearby "
+                + "or player. Using server.");
+            return ChatSettings.Audience.SERVER;
+        });
+        String format = c.getString("chat.format", d.format());
+        if (format == null || !format.contains(ChatSettings.COMMENT_TOKEN)) {
+            getLogger().warning("chat.format must contain " + ChatSettings.COMMENT_TOKEN + "; using the default.");
+        }
+        return new ChatSettings(
+            c.getBoolean("chat.enabled", d.enabled()),
+            audience,
+            c.getInt("chat.nearby_radius", d.nearbyRadius()),
+            format,
+            c.getInt("chat.cooldown_seconds", d.cooldownSeconds()));
     }
 
     private static String providerString(FileConfiguration c, String path, String legacyPath, String fallback) {

@@ -80,3 +80,11 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
 - Vertical offset is `display.offset_y` (default 0.8, clamped to [-2, 5]) above the hitbox top, clearing
   the vanilla nametag (~+0.5). Owners don't see their own title (`display.show_to_self: false`, via
   `Player#hideEntity`); every despawn path must call `despawn(...)` so the hide-entry is cleared.
+
+## 10. LLM chat commentary
+- The LLM returns an optional `comment` with the title (same request). `AwardedTitle.comment()` carries it;
+  any code that rebuilds an `AwardedTitle` must use `withText`/`withPriority` so the comment survives.
+- ALL LLM-authored MiniMessage (titles and comments) passes through `TitleText.sanitizeLlm`, which keeps
+  only style tags; click/hover/insert/selector/nbt/key/lang tags are stripped. Never render raw LLM text.
+- Comments refer to the player as `<player>`; `CommentaryBroadcaster` fills it with `Placeholder.unparsed`
+  on the main thread, and applies `chat.audience` and the per-player `chat.cooldown_seconds`.

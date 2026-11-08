@@ -19,7 +19,63 @@ public final class TitleText {
         "br", "newline", "reset", "key", "keybind", "lang", "tr", "translate", "lang_or", "tr_or",
         "translate_or", "selector", "sel", "score", "nbt", "data", "sprite", "head", "pr", "pre");
 
+    /** Style-only tags an LLM may use; anything else (click, hover, insert, selector, nbt...) is dropped. */
+    private static final Set<String> SAFE_TAGS = buildSafeTags();
+
     private TitleText() {}
+
+    private static Set<String> buildSafeTags() {
+        Set<String> tags = new java.util.HashSet<>(net.kyori.adventure.text.format.NamedTextColor.NAMES.keys());
+        tags.addAll(Set.of("grey", "dark_grey", "color", "colour", "c", "gradient", "rainbow", "transition",
+            "bold", "b", "italic", "i", "em", "underlined", "u", "strikethrough", "st", "obfuscated", "obf",
+            "reset", "shadow"));
+        return Set.copyOf(tags);
+    }
+
+    /**
+     * Removes every MiniMessage tag that is not a pure style tag (named/hex colours, gradient, rainbow,
+     * transition, decorations, reset, shadow), so untrusted LLM output can never inject click/hover
+     * actions, selectors, NBT lookups, translations or keybinds. Visible text is kept untouched and
+     * escaped {@code \<} sequences are preserved. When {@code allowPlayerToken} is true the
+     * {@link AwardedTitle#PLAYER_TOKEN} placeholder is kept as well.
+     */
+    public static String sanitizeLlm(String miniMessage, boolean allowPlayerToken) {
+        if (miniMessage == null) {
+            return null;
+        }
+        Matcher m = TAG.matcher(miniMessage);
+        StringBuilder out = new StringBuilder(miniMessage.length());
+        int last = 0;
+        while (m.find()) {
+            out.append(miniMessage, last, m.start());
+            String tag = m.group();
+            boolean escaped = m.start() > 0 && miniMessage.charAt(m.start() - 1) == '\\';
+            if (escaped || isSafeTag(tag, allowPlayerToken)) {
+                out.append(tag);
+            }
+            last = m.end();
+        }
+        out.append(miniMessage, last, miniMessage.length());
+        return out.toString();
+    }
+
+    private static boolean isSafeTag(String tag, boolean allowPlayerToken) {
+        String body = tag.substring(1, tag.length() - 1).trim();
+        if (body.startsWith("/")) {
+            body = body.substring(1);
+        }
+        if (body.startsWith("!")) {
+            body = body.substring(1);
+        }
+        if (body.startsWith("#")) {
+            return body.matches("#[0-9a-fA-F]{6}");
+        }
+        String name = tagName(body);
+        if (allowPlayerToken && name.equals("player") && body.equalsIgnoreCase("player")) {
+            return true;
+        }
+        return SAFE_TAGS.contains(name);
+    }
 
     /** Visible (rendered) length: {@code MiniMessage.miniMessage().stripTags(text).length()}. */
     public static int visibleLength(String miniMessage) {

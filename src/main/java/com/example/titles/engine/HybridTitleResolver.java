@@ -40,7 +40,8 @@ public final class HybridTitleResolver implements TitleResolverService {
                     if(safe.isPresent()) {
                         AwardedTitle title=safe.get();
                         String text=TitleText.truncateVisible(title.miniMessageText(),config.maxTitleLength());
-                        return Optional.of(new AwardedTitle(text,Math.max(title.priority(),match.map(AwardedTitle::priority).orElse(1)),true));
+                        // withText/withPriority keep the LLM's chat comment and fromLlm flag.
+                        return Optional.of(title.withText(text).withPriority(Math.max(title.priority(),match.map(AwardedTitle::priority).orElse(1))));
                     }
                     return fallback(match,config);
                 }).exceptionally(t->fallback(match,config));

@@ -45,5 +45,20 @@ display:
   # Tell a player in chat when they earn a new title (useful when show_to_self is false).
   announce_to_self: true
 
+chat:
+  # Let the LLM post a witty one-liner in chat about each event it titles (same API call, no extra cost).
+  # Static titles (LLM off, failed, or boss short-circuit) post nothing.
+  enabled: true
+
+  # Who sees it: "server" (everyone), "world", "nearby" (within nearby_radius blocks) or "player" (just them).
+  audience: "server"
+  nearby_radius: 64
+
+  # Minimum seconds between commentary lines about the same player (stops death-spam floods).
+  cooldown_seconds: 15
+
+  # MiniMessage format. Must contain <comment>; <player> is also available.
+  format: "<dark_gray>[<gold>EventTitles</gold>]</dark_gray> <gray><comment></gray>"
+
 fallbacks:
   default_title: "<gray>Unfortunate Soul</gray>"

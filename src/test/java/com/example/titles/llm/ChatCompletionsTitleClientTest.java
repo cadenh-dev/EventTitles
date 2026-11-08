@@ -167,6 +167,47 @@ class ChatCompletionsTitleClientTest {
     }
 
     @Test
+    void parsesSanitizedCommentWithPlayerToken() {
+        AwardedTitle title = parse("{\"title\":\"<green>Creeper Hugger</green>\",\"priority\":30,"
+            + "\"comment\":\"<player> really <bold>hugged</bold> that creeper <click:run_command:/op me>free op</click>\"}")
+            .orElseThrow();
+        assertEquals("<player> really <bold>hugged</bold> that creeper free op", title.comment());
+        assertTrue(title.fromLlm());
+    }
+
+    @Test
+    void badOrMissingCommentNeverSinksTheTitle() {
+        assertEquals(null, parse("{\"title\":\"<red>Oops</red>\"}").orElseThrow().comment());
+        assertEquals(null, parse("{\"title\":\"<red>Oops</red>\",\"comment\":\"&cLegacy\"}").orElseThrow().comment());
+        assertEquals(null, parse("{\"title\":\"<red>Oops</red>\",\"comment\":\"<player>\"}").orElseThrow().comment());
+        assertEquals(null, parse("{\"title\":\"<red>Oops</red>\",\"comment\":42}").orElseThrow().comment());
+    }
+
+    @Test
+    void commentIsLengthCapped() {
+        String longComment = "a".repeat(400);
+        String comment = parse("{\"title\":\"<red>Oops</red>\",\"comment\":\"" + longComment + "\"}").orElseThrow().comment();
+        assertEquals(ChatCompletionsTitleClient.MAX_COMMENT_LENGTH, TitleText.visibleLength(comment));
+    }
+
+    @Test
+    void titleTagsAreSanitized() {
+        AwardedTitle title = parse("{\"title\":\"<hover:show_text:'x'><gold>Sneaky</gold></hover>\"}").orElseThrow();
+        assertEquals("<gold>Sneaky</gold>", title.miniMessageText());
+    }
+
+    @Test
+    void promptAsksForCommentOnlyWhenChatEnabled() {
+        TitlesSettings on = TitlesSettings.defaults();
+        assertTrue(ChatCompletionsTitleClient.systemPrompt(on).contains("\"comment\""));
+        TitlesSettings off = new TitlesSettings(on.llmEnabled(), on.llmProvider(), on.llmEndpoint(), on.llmModel(),
+            on.llmApiKey(), on.llmTimeoutSeconds(), on.llmTemperature(), on.maxTitleLength(),
+            on.streakWindowMinutes(), on.defaultTitle(), on.displayOffsetY(), on.showToSelf(), on.announceToSelf(),
+            new com.example.titles.api.ChatSettings(false, null, 64, null, 15));
+        assertFalse(ChatCompletionsTitleClient.systemPrompt(off).contains("\"comment\""));
+    }
+
+    @Test
     void personasDifferPerProvider() {
         assertTrue(ChatCompletionsTitleClient.persona(LlmProvider.DEEPSEEK).contains("sarcastic"));
         assertTrue(ChatCompletionsTitleClient.persona(LlmProvider.GROK).contains("quote-tweeting"));
