@@ -46,7 +46,7 @@ class ChatPrefixSettingsTest {
         TitlesSettings wild = new TitlesSettings(d.llmEnabled(), d.llmProvider(), d.llmEndpoint(), d.llmModel(),
             d.llmApiKey(), d.llmTimeoutSeconds(), d.llmTemperature(), d.maxTitleLength(), d.streakWindowMinutes(),
             d.defaultTitle(), d.displayOffsetY(), d.showToSelf(), d.announceToSelf(), d.chat(), d.tabList(),
-            d.chatPrefix(), 99, d.showcase());
+            d.chatPrefix(), 99, d.showcase(), d.protectionDecayMinutes());
         assertEquals(10, wild.displayInterpolationTicks());
     }
 }

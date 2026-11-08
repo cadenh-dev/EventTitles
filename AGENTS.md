@@ -129,3 +129,11 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
   `showcase.max_titles` (1–5). Multi-line display text uses MiniMessage components.
 - Showcase titles appear only above the player's head. Chat, tab list, history and new-title announcements
   continue to use the active title only.
+
+## 16. Priority protection decay (amends §5)
+- Gating compares the incoming priority with the active title's *effective* priority from
+  `api/TitlePriority#effective`: protection falls linearly from the stored priority to 0 over
+  `settings.protection_decay_minutes` (default 30; <= 0 = strict, never decays). The title itself is never
+  removed by time; only how hard it is to replace changes.
+- PDC `eventtitles:active_since` (LONG) stamps each award; titles without it (older versions) count as fully
+  worn off. Admin `/title set` writes `eventtitles:active_no_decay` (BYTE) and keeps full protection.

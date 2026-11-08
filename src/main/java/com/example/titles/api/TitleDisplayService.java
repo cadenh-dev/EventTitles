@@ -4,8 +4,22 @@ import org.bukkit.entity.Player;
 
 /** Main-thread-only service owning the floating TextDisplay passengers and PDC title state. */
 public interface TitleDisplayService {
-    /** Applies {@code title} if its priority is >= the active priority; otherwise ignores it. */
-    void setPlayerTitle(Player player, AwardedTitle title);
+    /**
+     * Applies {@code title} if its priority is >= the active title's current protection
+     * ({@link TitlePriority#effective}); otherwise ignores it. The new title's protection wears off.
+     */
+    default void setPlayerTitle(Player player, AwardedTitle title) {
+        setPlayerTitle(player, title, true);
+    }
+
+    /** As above; {@code decays = false} keeps full protection forever (admin-set titles). */
+    void setPlayerTitle(Player player, AwardedTitle title, boolean decays);
+
+    /** Current protection of the active title (0 = anything replaces it). Main thread. */
+    int effectivePriority(Player player);
+
+    /** Whole minutes until any new title can replace the active one; 0 = now, -1 = never wears off. */
+    long minutesUntilReplaceable(Player player);
 
     /**
      * Thread-safe (any thread, e.g. async chat): the player's active title as last seen on the main

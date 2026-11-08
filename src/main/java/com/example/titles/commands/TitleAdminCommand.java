@@ -353,6 +353,16 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             "<gray><player>'s title: <title> <dark_gray>(hover for why)</dark_gray>",
             Placeholder.unparsed("player", target.getName()),
             Placeholder.component("title", com.example.titles.display.TitleHover.titleWithReason(current.get()))));
+        int protection = displays.effectivePriority(target);
+        long minutes = displays.minutesUntilReplaceable(target);
+        String when = minutes < 0 ? "it never wears off"
+            : minutes == 0 ? "any new title can replace it now"
+            : "any title can replace it in " + minutes + " min";
+        sender.sendMessage(MINI_MESSAGE.deserialize(
+            "<dark_gray>Protection: <protection>/<priority> · <when></dark_gray>",
+            Placeholder.unparsed("protection", Integer.toString(protection)),
+            Placeholder.unparsed("priority", Integer.toString(current.get().priority())),
+            Placeholder.unparsed("when", when)));
     }
 
     private void handleSet(CommandSender sender, String[] args) {
@@ -396,8 +406,9 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             return;
         }
         displays.clearPlayerTitle(player);
+        // Admin titles keep their full priority forever (no protection decay).
         displays.setPlayerTitle(player, new AwardedTitle(titleText, priority, false, null,
-            "Why: Set by " + sender.getName() + " with /title set\nSource: Admin · Priority " + priority));
+            "Why: Set by " + sender.getName() + " with /title set\nSource: Admin · Priority " + priority), false);
         sender.sendMessage(MINI_MESSAGE.deserialize("<green>Set title for <player> to <title> (priority <priority>).",
             Placeholder.unparsed("player", player.getName()),
             Placeholder.component("title", rendered),

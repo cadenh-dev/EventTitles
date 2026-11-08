@@ -140,7 +140,8 @@ public final class TitlesPlugin extends JavaPlugin {
             loadChatPrefix(c, d.chatPrefix()),
             c.getInt("display.interpolation_ticks", d.displayInterpolationTicks()),
             new ShowcaseSettings(c.getBoolean("showcase.enabled", d.showcase().enabled()),
-                c.getInt("showcase.max_titles", d.showcase().maxTitles())));
+                c.getInt("showcase.max_titles", d.showcase().maxTitles())),
+            c.getInt("settings.protection_decay_minutes", d.protectionDecayMinutes()));
         settings.set(loaded);
         UpdateService.Settings ud = UpdateService.Settings.defaults();
         String repository = c.getString("updates.repository", ud.repository());

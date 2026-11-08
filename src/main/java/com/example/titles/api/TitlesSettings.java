@@ -27,7 +27,8 @@ public record TitlesSettings(
     TabListSettings tabList,
     ChatPrefixSettings chatPrefix,
     int displayInterpolationTicks,
-    ShowcaseSettings showcase
+    ShowcaseSettings showcase,
+    int protectionDecayMinutes
 ) {
     public static final String PLACEHOLDER_KEY = "sk-your-deepseek-key-here";
     /** Blocks above the top of the player's hitbox; vanilla draws the nametag at about +0.5. */
@@ -37,6 +38,8 @@ public record TitlesSettings(
      * client, so matching that keeps the title moving in step with the player's body and nametag.
      */
     public static final int DEFAULT_DISPLAY_INTERPOLATION_TICKS = 3;
+    /** Minutes for a title's replacement protection to wear off (see {@link TitlePriority}); <= 0 = never. */
+    public static final int DEFAULT_PROTECTION_DECAY_MINUTES = 30;
 
     public TitlesSettings {
         if (llmProvider == null) {
@@ -65,7 +68,7 @@ public record TitlesSettings(
         this(llmEnabled, llmProvider, llmEndpoint, llmModel, llmApiKey, llmTimeoutSeconds, llmTemperature,
             maxTitleLength, streakWindowMinutes, defaultTitle, displayOffsetY, showToSelf, announceToSelf, chat,
             TabListSettings.defaults(), ChatPrefixSettings.defaults(), DEFAULT_DISPLAY_INTERPOLATION_TICKS,
-            ShowcaseSettings.defaults());
+            ShowcaseSettings.defaults(), DEFAULT_PROTECTION_DECAY_MINUTES);
     }
 
     /** Display and chat options at their defaults (offset 0.8, hidden from owner, owner notified). */
@@ -75,7 +78,7 @@ public record TitlesSettings(
         this(llmEnabled, llmProvider, llmEndpoint, llmModel, llmApiKey, llmTimeoutSeconds, llmTemperature,
             maxTitleLength, streakWindowMinutes, defaultTitle, DEFAULT_DISPLAY_OFFSET_Y, false, true,
             ChatSettings.defaults(), TabListSettings.defaults(), ChatPrefixSettings.defaults(),
-            DEFAULT_DISPLAY_INTERPOLATION_TICKS, ShowcaseSettings.defaults());
+            DEFAULT_DISPLAY_INTERPOLATION_TICKS, ShowcaseSettings.defaults(), DEFAULT_PROTECTION_DECAY_MINUTES);
     }
 
     public static TitlesSettings defaults() {

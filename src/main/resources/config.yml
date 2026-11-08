@@ -33,6 +33,12 @@ settings:
   # Rolling time window (in minutes) for consecutive streak tracking
   streak_window_minutes: 5
 
+  # A title can only be replaced by one of equal or higher priority, but that protection wears off
+  # over this many minutes (the title itself never disappears): a fresh priority-80 title blocks
+  # anything below 80, after 15 min it blocks below 40, after 30 min any new title can replace it.
+  # Admin /title set titles never wear off. -1 = never wear off (one big title blocks the rest forever).
+  protection_decay_minutes: 30
+
 display:
   # Height of the title above the top of the player's hitbox, in blocks. The vanilla nametag sits at
   # about +0.5, so 0.8 keeps the title just above it. Tune in-game; /title reload applies it live.

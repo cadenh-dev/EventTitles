@@ -4,6 +4,7 @@ import com.example.titles.api.AwardedTitle;
 import com.example.titles.api.ShowcaseLines;
 import com.example.titles.api.TabListSettings;
 import com.example.titles.api.TitleDisplayService;
+import com.example.titles.api.TitlePriority;
 import com.example.titles.api.TitleHistory;
 import com.example.titles.api.TitleText;
 import com.example.titles.api.TitlesSettings;
@@ -60,6 +61,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     private final NamespacedKey activeTitleKey;
     private final NamespacedKey activePriorityKey;
     private final NamespacedKey activeReasonKey;
+    private final NamespacedKey activeSinceKey;
+    private final NamespacedKey activeNoDecayKey;
     private final NamespacedKey displayOwnerKey;
     private final NamespacedKey showcaseKey;
     private final Map<UUID, TextDisplay> displays = new HashMap<>();
@@ -82,19 +85,27 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         this.activeTitleKey = new NamespacedKey(plugin, "active_title");
         this.activePriorityKey = new NamespacedKey(plugin, "active_priority");
         this.activeReasonKey = new NamespacedKey(plugin, "active_reason");
+        this.activeSinceKey = new NamespacedKey(plugin, "active_since");
+        this.activeNoDecayKey = new NamespacedKey(plugin, "active_no_decay");
         this.displayOwnerKey = new NamespacedKey(plugin, "display_owner");
         this.showcaseKey = new NamespacedKey(plugin, "showcase");
     }
 
     @Override
-    public void setPlayerTitle(Player player, AwardedTitle title) {
-        Integer current = player.getPersistentDataContainer().get(activePriorityKey, PersistentDataType.INTEGER);
-        if (title.priority() < (current == null ? 0 : current)) {
+    public void setPlayerTitle(Player player, AwardedTitle title, boolean decays) {
+        // Protection of the current title wears off over settings.protection_decay_minutes.
+        if (!TitlePriority.canReplace(title.priority(), effectivePriority(player))) {
             return;
         }
         String text = TitleText.truncateVisible(title.miniMessageText(), settings.get().maxTitleLength());
         player.getPersistentDataContainer().set(activeTitleKey, PersistentDataType.STRING, text);
         player.getPersistentDataContainer().set(activePriorityKey, PersistentDataType.INTEGER, title.priority());
+        player.getPersistentDataContainer().set(activeSinceKey, PersistentDataType.LONG, System.currentTimeMillis());
+        if (decays) {
+            player.getPersistentDataContainer().remove(activeNoDecayKey);
+        } else {
+            player.getPersistentDataContainer().set(activeNoDecayKey, PersistentDataType.BYTE, (byte) 1);
+        }
         if (title.reason() != null) {
             player.getPersistentDataContainer().set(activeReasonKey, PersistentDataType.STRING, title.reason());
         } else {
@@ -120,6 +131,29 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
                 "<gray>New title: <title> <dark_gray>(hover for why)</dark_gray>",
                 Placeholder.component("title", TitleHover.titleWithReason(text, title.reason()))));
         }
+    }
+
+    @Override
+    public int effectivePriority(Player player) {
+        var pdc = player.getPersistentDataContainer();
+        Integer priority = pdc.get(activePriorityKey, PersistentDataType.INTEGER);
+        if (priority == null || !pdc.has(activeTitleKey, PersistentDataType.STRING)) {
+            return 0;
+        }
+        Long since = pdc.get(activeSinceKey, PersistentDataType.LONG);
+        return TitlePriority.effective(priority, since == null ? 0 : since, System.currentTimeMillis(),
+            settings.get().protectionDecayMinutes(), !pdc.has(activeNoDecayKey, PersistentDataType.BYTE));
+    }
+
+    @Override
+    public long minutesUntilReplaceable(Player player) {
+        var pdc = player.getPersistentDataContainer();
+        if (!pdc.has(activeTitleKey, PersistentDataType.STRING)) {
+            return 0;
+        }
+        Long since = pdc.get(activeSinceKey, PersistentDataType.LONG);
+        return TitlePriority.minutesUntilOpen(since == null ? 0 : since, System.currentTimeMillis(),
+            settings.get().protectionDecayMinutes(), !pdc.has(activeNoDecayKey, PersistentDataType.BYTE));
     }
 
     @Override
@@ -150,6 +184,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         player.getPersistentDataContainer().remove(activeTitleKey);
         player.getPersistentDataContainer().remove(activePriorityKey);
         player.getPersistentDataContainer().remove(activeReasonKey);
+        player.getPersistentDataContainer().remove(activeSinceKey);
+        player.getPersistentDataContainer().remove(activeNoDecayKey);
         titleCache.remove(player.getUniqueId());
         removeDisplay(player);
         updateTabName(player, null);
