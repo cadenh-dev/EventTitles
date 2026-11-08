@@ -101,7 +101,7 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
 
     private void handleSet(CommandSender sender, String[] args) {
         if (args.length < 4) {
-            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title set <player> <priority> <miniMessage...>"));
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title set \\<player> \\<priority> \\<miniMessage...>"));
             return;
         }
         Player player = Bukkit.getPlayerExact(args[1]);
@@ -149,7 +149,7 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
 
     private void handleClear(CommandSender sender, String[] args) {
         if (args.length != 2) {
-            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title clear <player>"));
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title clear \\<player>"));
             return;
         }
         Player player = Bukkit.getPlayerExact(args[1]);
@@ -163,7 +163,7 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
 
     private void handleTestLlm(CommandSender sender, String[] args) {
         if (args.length != 2) {
-            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title testllm <player>"));
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title testllm \\<player>"));
             return;
         }
         Player player = Bukkit.getPlayerExact(args[1]);
@@ -257,12 +257,12 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
 
     private static void sendHelp(CommandSender sender, String label) {
         sender.sendMessage(MINI_MESSAGE.deserialize("<gold>EventTitles commands</gold>"));
-        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/{label} set <player> <priority> <miniMessage...>",
+        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> set \\<player> \\<priority> \\<miniMessage...>",
             Placeholder.unparsed("label", label)));
-        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/{label} clear <player>",
+        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> clear \\<player>",
             Placeholder.unparsed("label", label)));
-        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/{label} reload", Placeholder.unparsed("label", label)));
-        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/{label} testllm <player>",
+        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> reload", Placeholder.unparsed("label", label)));
+        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> testllm \\<player>",
             Placeholder.unparsed("label", label)));
     }
 }

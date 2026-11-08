@@ -20,7 +20,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
-import org.bukkit.event.world.ChunkLoadEvent;
+import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 
@@ -105,8 +105,8 @@ public final class DisplayLifecycleListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
-    public void onChunkLoad(ChunkLoadEvent event) {
-        for (Entity entity : event.getChunk().getEntities()) {
+    public void onEntitiesLoad(EntitiesLoadEvent event) {
+        for (Entity entity : event.getEntities()) {
             if (isOwnedDisplay(entity) && !(entity.getVehicle() instanceof Player player && player.isOnline())) {
                 entity.remove();
             }

@@ -102,7 +102,7 @@ class DeepSeekTitleClientTest {
 
     @Test
     void rejectsLegacyColorCodes() {
-        assertTrue(parse("{\"title\":\"§cRed title\"}").isEmpty());
+        assertTrue(parse("{\"title\":\"\u00a7cRed title\"}").isEmpty());
         assertTrue(parse("{\"title\":\"&cRed title\"}").isEmpty());
     }
 

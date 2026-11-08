@@ -96,7 +96,7 @@ public final class DeepSeekTitleClient implements LlmTitleGenerator {
         String prompt = "You are a sarcastic, witty Minecraft spectator/commentator who awards a short nickname title for what just happened. "
             + "Reply with ONLY a JSON object exactly {\"title\": \"<color>...</color>\", \"priority\": 50}. "
             + "The title uses Kyori MiniMessage tags only (named colors like <red>, <gold>, hex <#ff8800>, <gradient:#a:#b>, <bold>, <italic>); "
-            + "never legacy & or § codes. Use 1–4 words, no player name, no quotes or emoji. "
+            + "never legacy ampersand or section-sign color codes. Use 1–4 words, no player name, no quotes or emoji. "
             + "Priority is an integer from 1 to 89 reflecting how impressive or embarrassing; bosses are 80+, mundane deaths are 10–30.";
         if (settings.maxTitleLength() > 0) {
             prompt += " The visible text must be at most " + settings.maxTitleLength() + " characters.";

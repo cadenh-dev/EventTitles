@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 
 /**
- * Shared, Bukkit-free MiniMessage title helpers (AGENTS.md §4). Uses Adventure only, never org.bukkit.
+ * Shared, Bukkit-free MiniMessage title helpers (AGENTS.md section 4). Uses Adventure only, never org.bukkit.
  */
 public final class TitleText {
     private static final MiniMessage MM = MiniMessage.miniMessage();

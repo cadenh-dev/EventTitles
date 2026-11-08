@@ -31,7 +31,7 @@ public final class StaticTitleRegistry {
         add(r,"deep_dark_victim",EventCategory.DEATH_MOB,c->c.biome().equalsIgnoreCase("DEEP_DARK"),"<dark_gray>Darkness Dweller</dark_gray>",50);
         add(r,"mob_naked",EventCategory.DEATH_MOB,c->c.armorSummary().equalsIgnoreCase("NONE"),"<yellow>Fashionably Fragile</yellow>",29);
         add(r,"mob_totem",EventCategory.DEATH_MOB,c->c.heldItem().equalsIgnoreCase("TOTEM_OF_UNDYING"),"<gold>Totem Tease</gold>",33);
-        add(r,"mob_low_health",EventCategory.DEATH_MOB,c->number(c,"health",2)<=1,"<red>One Heart Wonder</red>",40);
+        add(r,"mob_outplayed",EventCategory.DEATH_MOB,c->subject(c,"PLAYER"),"<red>Thoroughly Outplayed</red>",34);
         add(r,"fall_from_grace",EventCategory.DEATH_ENV,c->subject(c,"FALL"),"<gold>Gravity's Favorite</gold>",20);
         add(r,"void_vacation",EventCategory.DEATH_ENV,c->subject(c,"VOID"),"<dark_purple>Void Vacation</dark_purple>",25);
         add(r,"lava_lounge",EventCategory.DEATH_ENV,c->subject(c,"LAVA"),"<red>Lava Lounge</red>",22);
@@ -50,7 +50,7 @@ public final class StaticTitleRegistry {
         add(r,"pvp_axe",EventCategory.PVP_KILL,c->c.heldItem().endsWith("AXE"),"<gold>Axe Marksman</gold>",46);
         add(r,"pvp_naked",EventCategory.PVP_KILL,c->c.armorSummary().equalsIgnoreCase("NONE"),"<yellow>Brave Threads</yellow>",43);
         add(r,"pvp_deepdark",EventCategory.PVP_KILL,c->c.biome().equalsIgnoreCase("DEEP_DARK"),"<dark_aqua>Dark Duelist</dark_aqua>",52);
-        add(r,"clutch_heart",EventCategory.CLUTCH_SURVIVAL,c->number(c,"health",2)<=1,"<gradient:#ff512f:#dd2476><bold>Heartbreaker</bold></gradient>",70);
+        add(r,"clutch_heart",EventCategory.CLUTCH_SURVIVAL,c->number(c,"health_after",2)<=1,"<gradient:#ff512f:#dd2476><bold>Heartbreaker</bold></gradient>",70);
         add(r,"clutch_void",EventCategory.CLUTCH_SURVIVAL,c->subject(c,"VOID"),"<light_purple>Void Dodger</light_purple>",62);
         add(r,"clutch_lava",EventCategory.CLUTCH_SURVIVAL,c->subject(c,"LAVA"),"<gold>Hot Foot</gold>",58);
         add(r,"clutch_water",EventCategory.CLUTCH_SURVIVAL,c->c.heldItem().contains("WATER_BUCKET"),"<blue>Bucket Legend</blue>",65);
