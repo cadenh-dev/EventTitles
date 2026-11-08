@@ -102,7 +102,7 @@ public final class StaticTitleRegistry {
         add(r, "deep_dark_victim", EventCategory.DEATH_MOB, c -> c.biome().equalsIgnoreCase("DEEP_DARK"),
             v("<dark_gray>Darkness Dweller</dark_gray>", 50),
             v("<dark_aqua>Deep Dark Dinner</dark_aqua>", 55),
-            v("<dark_gray>Skulk Snack</dark_gray>", 48));
+            v("<dark_gray>Sculk Snack</dark_gray>", 48));
         add(r, "mob_naked", EventCategory.DEATH_MOB, c -> c.armorSummary().equalsIgnoreCase("NONE"),
             v("<yellow>Fashionably Fragile</yellow>", 29),
             v("<yellow>Naked & Afraid</yellow>", 27));
