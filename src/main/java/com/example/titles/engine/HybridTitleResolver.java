@@ -12,15 +12,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 public final class HybridTitleResolver implements TitleResolverService {
+    /** Rules whose main priority is at least this resolve instantly without the LLM (bosses). */
+    static final int SHORT_CIRCUIT_PRIORITY = 90;
     private final StaticTitleRegistry registry;
     private final LlmTitleGenerator llm;
     private final Supplier<TitlesSettings> settings;
     public HybridTitleResolver(StaticTitleRegistry registry,LlmTitleGenerator llm,Supplier<TitlesSettings> settings){this.registry=registry;this.llm=llm;this.settings=settings;}
 
     @Override public CompletableFuture<Optional<AwardedTitle>> resolve(EventContext context) {
-        Optional<AwardedTitle> stat;
-        try { stat=registry.findStaticMatch(context); } catch(Throwable t) { stat=Optional.empty(); }
-        if(stat.isPresent()&&stat.get().priority()>=90)return CompletableFuture.completedFuture(stat);
+        // Static titles are randomized per call from the matching rule's pool; boss short-circuiting
+        // is decided by the rule's main (trigger) priority so variants below 90 still skip the LLM.
+        Optional<StaticTitleRegistry.StaticMatch> found;
+        try { found=registry.findMatch(context); } catch(Throwable t) { found=Optional.empty(); }
+        Optional<AwardedTitle> stat=found.map(StaticTitleRegistry.StaticMatch::title);
+        if(found.isPresent()&&found.get().triggerPriority()>=SHORT_CIRCUIT_PRIORITY)return CompletableFuture.completedFuture(stat);
         final Optional<AwardedTitle> match=stat;
         TitlesSettings config;
         try { config=settings.get(); } catch(Throwable t) { return CompletableFuture.completedFuture(match); }

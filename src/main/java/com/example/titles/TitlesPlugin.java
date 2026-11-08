@@ -57,7 +57,8 @@ public final class TitlesPlugin extends JavaPlugin {
             displayService.refreshDisplay(player);
         }
 
-        getLogger().info(() -> "EventTitles enabled with " + registry.size() + " static rules; LLM "
+        getLogger().info(() -> "EventTitles enabled with " + registry.size() + " static rules (" + registry.titleCount()
+            + " titles); LLM "
             + (settings.get().llmEnabled() && settings.get().effectiveApiKey() != null ? "active" : "inactive") + ".");
     }
 
