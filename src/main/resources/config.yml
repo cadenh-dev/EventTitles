@@ -1,0 +1,19 @@
+llm:
+  enabled: true
+  provider: "deepseek"
+  endpoint: "https://api.deepseek.com/chat/completions"
+  model: "deepseek-chat"
+  api_key: "sk-your-deepseek-key-here" # Can also be set via DEEPSEEK_API_KEY environment variable
+  timeout_seconds: 3
+  temperature: 0.7
+
+settings:
+  # Maximum visible characters for a title (excluding MiniMessage tags).
+  # Set to -1 for unlimited length.
+  max_title_length: -1
+
+  # Rolling time window (in minutes) for consecutive streak tracking
+  streak_window_minutes: 5
+
+fallbacks:
+  default_title: "<gray>Unfortunate Soul</gray>"

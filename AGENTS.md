@@ -1,0 +1,60 @@
+# AGENTS.md — EventTitles Guardrail Laws
+
+These rules bind every human and AI contributor. A change that violates one is rejected at review.
+
+## 1. Platform & Toolchain
+- Paper API: `io.papermc.paper:paper-api:26.3.build.230-stable` (`compileOnly`; also `testImplementation`).
+- **JDK: Java 25 toolchain.** The spec asked for Java 21, but Paper API 26.3 publishes Gradle module
+  metadata with `org.gradle.jvm.version = 25`, so it cannot resolve on a 21 toolchain. Do not lower it.
+- Descriptor: `src/main/resources/paper-plugin.yml`, `api-version: '26.3'`. Paper plugins cannot declare
+  `commands:`; commands are registered in code with `JavaPlugin#registerCommand(..., BasicCommand)`.
+- Build/verify: `./gradlew test build` (Gradle wrapper 9.5.1). Must pass with no new warnings.
+- No new dependencies without the Lead Architect's approval. Gson + JUnit 5 are already available.
+
+## 2. Formatting: Kyori Adventure MiniMessage only
+- BANNED: `org.bukkit.ChatColor`, the `§` character, legacy `&` codes, `LegacyComponentSerializer`.
+- All text is MiniMessage (`net.kyori.adventure.text.minimessage.MiniMessage`) → `Component`.
+- Use Adventure APIs (`sender.sendMessage(Component)`, `TextDisplay#text(Component)`), not String setters.
+
+## 3. Concurrency boundary
+- `com.example.titles.api.*` (except `TitleDisplayService`), `com.example.titles.llm.*` and
+  `com.example.titles.engine.*` must NEVER import `org.bukkit.*`, `io.papermc.*` or `com.destroystokyo.*`.
+  Adventure (`net.kyori.*`) is allowed.
+- Listeners snapshot Bukkit state on the main thread into an immutable `EventContext` *before* any async work.
+- Any touch of `Player`, `Entity`, `TextDisplay`, PDC or world state from a future callback MUST be marshalled
+  back with `Bukkit.getScheduler().runTask(plugin, ...)`, and must re-check `player.isOnline()` there.
+- Futures returned by `TitleResolverService` / `LlmTitleGenerator` never complete exceptionally.
+- No blocking calls (`join()`, `get()`, `send()`) on the main thread.
+
+## 4. Length validation
+- Visible length = `MiniMessage.miniMessage().stripTags(title).length()` — use `TitleText.visibleLength`.
+- Truncation: `TitleText.truncateVisible(text, max)`; `max <= 0` means unlimited. Never hand-roll another.
+
+## 5. Titles & lifecycle
+- Priorities are 1–100. Replace only when `incoming.priority() >= current.priority()`.
+- No timers may ever clear a title (no auto-decay).
+- Source of truth = player PDC: `eventtitles:active_title` (STRING), `eventtitles:active_priority` (INTEGER).
+- Display entities: `setPersistent(false)` (never saved to chunks) and tagged with PDC
+  `eventtitles:display_owner` (STRING player UUID) so strays can be identified and purged.
+- At most one display per player, ever. Every spawn path must first remove any existing one.
+
+## 6. Ownership & contracts (do not change signatures without the Lead Architect)
+Shared API lives in `com.example.titles.api` and is owned by the Lead Architect — workers must not edit it.
+
+| Package | Class | Public constructor / contract |
+|---|---|---|
+| display | `PaperTitleDisplayManager implements TitleDisplayService` | `(Plugin plugin, Supplier<TitlesSettings> settings)` |
+| display | `DisplayLifecycleListener implements Listener` | `(Plugin plugin, TitleDisplayService displays)` |
+| llm | `DeepSeekTitleClient implements LlmTitleGenerator` | `(Supplier<TitlesSettings> settings)` and `(Supplier<TitlesSettings> settings, HttpClient http)` |
+| engine | `StreakTracker implements StreakService` | `(Supplier<TitlesSettings> settings)` and `(Supplier<TitlesSettings> settings, Clock clock)` |
+| engine | `StaticTitleRegistry` | `()`; `Optional<AwardedTitle> findStaticMatch(EventContext)`; `int size()` |
+| engine | `HybridTitleResolver implements TitleResolverService` | `(StaticTitleRegistry registry, LlmTitleGenerator llm, Supplier<TitlesSettings> settings)` |
+| listeners | `GameplayEventCollector implements Listener` | `(Plugin plugin, TitleResolverService resolver, TitleDisplayService displays, StreakService streaks)` |
+| commands | `TitleAdminCommand implements CommandExecutor, TabCompleter, BasicCommand` | `(Plugin plugin, TitleDisplayService displays, LlmTitleGenerator llm, Supplier<TitlesSettings> settings, Runnable reloadAction)` |
+
+`TitlesPlugin` (root package) is owned by the Lead Architect and wires everything together.
+
+## 7. Style
+- Java records/`final` fields for immutable data; no static mutable singletons.
+- Log via `plugin.getLogger()` / `java.util.logging.Logger` — never `System.out`. Never log the API key.
+- Each worker touches only the files in its work order.

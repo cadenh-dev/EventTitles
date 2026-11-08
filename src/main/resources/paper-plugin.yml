@@ -1,0 +1,9 @@
+name: EventTitles
+version: '${version}'
+main: com.example.titles.TitlesPlugin
+api-version: '26.3'
+description: Dynamic, reactive titles above player names driven by in-game events.
+permissions:
+  titles.admin:
+    description: Allows administrative management of event titles
+    default: op
