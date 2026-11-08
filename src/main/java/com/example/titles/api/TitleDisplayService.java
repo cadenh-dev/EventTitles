@@ -7,6 +7,9 @@ public interface TitleDisplayService {
     /** Applies {@code title} if its priority is >= the active priority; otherwise ignores it. */
     void setPlayerTitle(Player player, AwardedTitle title);
 
+    /** The player's active title as stored in PDC (text, priority and reason; no comment). */
+    java.util.Optional<AwardedTitle> currentTitle(Player player);
+
     /** Removes the title from PDC and despawns the display (admin action, ignores priority). */
     void clearPlayerTitle(Player player);
 

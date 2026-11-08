@@ -30,7 +30,7 @@ import org.bukkit.plugin.Plugin;
 /** Administrative commands for setting, clearing, and inspecting event titles. */
 public final class TitleAdminCommand implements CommandExecutor, TabCompleter, BasicCommand {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
-    private static final List<String> SUBCOMMANDS = List.of("set", "clear", "reload", "testllm");
+    private static final List<String> SUBCOMMANDS = List.of("info", "set", "clear", "reload", "testllm");
     private static final List<String> PRIORITIES = List.of("10", "50", "90", "100");
 
     private final Plugin plugin;
@@ -58,10 +58,14 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
         return complete(args);
     }
 
+    /** Base permission to run /title at all ({@code info}); admin subcommands also need titles.admin. */
     @Override
     public String permission() {
-        return "titles.admin";
+        return INFO_PERMISSION;
     }
+
+    private static final String ADMIN_PERMISSION = "titles.admin";
+    private static final String INFO_PERMISSION = "titles.info";
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -75,7 +79,16 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
     }
 
     private void handle(CommandSender sender, String label, String[] args) {
-        if (!sender.hasPermission("titles.admin")) {
+        if (args.length > 0 && args[0].equalsIgnoreCase("info")) {
+            handleInfo(sender, args);
+            return;
+        }
+        if (!sender.hasPermission(ADMIN_PERMISSION)) {
+            if (args.length == 0 && sender.hasPermission(INFO_PERMISSION)) {
+                sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> info \\<player>",
+                    Placeholder.unparsed("label", label)));
+                return;
+            }
             sender.sendMessage(MINI_MESSAGE.deserialize("<red>You do not have permission to use this command."));
             return;
         }
@@ -97,6 +110,36 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             case "testllm" -> handleTestLlm(sender, args);
             default -> sendHelp(sender, label);
         }
+    }
+
+    /** /title info [player]: shows a player's current title; hover it for the reason. */
+    private void handleInfo(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(INFO_PERMISSION)) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>You do not have permission to use this command."));
+            return;
+        }
+        Player target;
+        if (args.length >= 2) {
+            target = Bukkit.getPlayerExact(args[1]);
+            if (target == null || !target.isOnline()) {
+                sendNamed(sender, "<red>Player <player> is not online.", args[1]);
+                return;
+            }
+        } else if (sender instanceof Player self) {
+            target = self;
+        } else {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Usage: /title info \\<player>"));
+            return;
+        }
+        var current = displays.currentTitle(target);
+        if (current.isEmpty()) {
+            sendNamed(sender, "<gray><player> has no title yet.", target.getName());
+            return;
+        }
+        sender.sendMessage(MINI_MESSAGE.deserialize(
+            "<gray><player>'s title: <title> <dark_gray>(hover for why)</dark_gray>",
+            Placeholder.unparsed("player", target.getName()),
+            Placeholder.component("title", com.example.titles.display.TitleHover.titleWithReason(current.get()))));
     }
 
     private void handleSet(CommandSender sender, String[] args) {
@@ -140,7 +183,8 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             return;
         }
         displays.clearPlayerTitle(player);
-        displays.setPlayerTitle(player, new AwardedTitle(titleText, priority, false));
+        displays.setPlayerTitle(player, new AwardedTitle(titleText, priority, false, null,
+            "Why: Set by " + sender.getName() + " with /title set\nSource: Admin · Priority " + priority));
         sender.sendMessage(MINI_MESSAGE.deserialize("<green>Set title for <player> to <title> (priority <priority>).",
             Placeholder.unparsed("player", player.getName()),
             Placeholder.component("title", rendered),
@@ -212,7 +256,10 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
                     sender.sendMessage(MINI_MESSAGE.deserialize("<dark_gray>(no chat comment returned)"));
                 }
                 if (player.isOnline()) {
-                    displays.setPlayerTitle(player, title);
+                    TitlesSettings now = settings.get();
+                    displays.setPlayerTitle(player, title.withReason("Why: LLM test run by " + sender.getName()
+                        + " with /title testllm\nSource: " + now.llmProvider().configId() + " (" + now.llmModel()
+                        + ") · Priority " + title.priority()));
                 }
             });
         });
@@ -240,7 +287,7 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             return matching(SUBCOMMANDS, args[0]);
         }
         if (args.length == 2 && (args[0].equalsIgnoreCase("set") || args[0].equalsIgnoreCase("clear")
-            || args[0].equalsIgnoreCase("testllm"))) {
+            || args[0].equalsIgnoreCase("testllm") || args[0].equalsIgnoreCase("info"))) {
             List<String> names = new ArrayList<>();
             for (Player player : Bukkit.getOnlinePlayers()) {
                 names.add(player.getName());
@@ -264,6 +311,8 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
 
     private static void sendHelp(CommandSender sender, String label) {
         sender.sendMessage(MINI_MESSAGE.deserialize("<gold>EventTitles commands</gold>"));
+        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> info [player]",
+            Placeholder.unparsed("label", label)));
         sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> set \\<player> \\<priority> \\<miniMessage...>",
             Placeholder.unparsed("label", label)));
         sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> clear \\<player>",

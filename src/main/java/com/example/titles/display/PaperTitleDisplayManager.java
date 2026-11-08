@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -53,6 +54,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     private final Supplier<TitlesSettings> settings;
     private final NamespacedKey activeTitleKey;
     private final NamespacedKey activePriorityKey;
+    private final NamespacedKey activeReasonKey;
     private final NamespacedKey displayOwnerKey;
     private final Map<UUID, TextDisplay> displays = new HashMap<>();
     /** Players whose tab-list name this plugin has set (so only those are reset). */
@@ -64,6 +66,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         this.settings = settings;
         this.activeTitleKey = new NamespacedKey(plugin, "active_title");
         this.activePriorityKey = new NamespacedKey(plugin, "active_priority");
+        this.activeReasonKey = new NamespacedKey(plugin, "active_reason");
         this.displayOwnerKey = new NamespacedKey(plugin, "display_owner");
     }
 
@@ -76,6 +79,11 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         String text = TitleText.truncateVisible(title.miniMessageText(), settings.get().maxTitleLength());
         player.getPersistentDataContainer().set(activeTitleKey, PersistentDataType.STRING, text);
         player.getPersistentDataContainer().set(activePriorityKey, PersistentDataType.INTEGER, title.priority());
+        if (title.reason() != null) {
+            player.getPersistentDataContainer().set(activeReasonKey, PersistentDataType.STRING, title.reason());
+        } else {
+            player.getPersistentDataContainer().remove(activeReasonKey);
+        }
 
         TextDisplay display = displays.get(player.getUniqueId());
         if (display != null && display.isValid() && display.getWorld().equals(player.getWorld())) {
@@ -86,15 +94,29 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         }
         if (settings.get().announceToSelf()) {
             // The owner usually can't see their own title (show_to_self: false), so tell them in chat.
-            player.sendMessage(MiniMessage.miniMessage().deserialize("<gray>New title: <title>",
-                Placeholder.component("title", MiniMessage.miniMessage().deserialize(text))));
+            player.sendMessage(MiniMessage.miniMessage().deserialize(
+                "<gray>New title: <title> <dark_gray>(hover for why)</dark_gray>",
+                Placeholder.component("title", TitleHover.titleWithReason(text, title.reason()))));
         }
+    }
+
+    @Override
+    public Optional<AwardedTitle> currentTitle(Player player) {
+        var pdc = player.getPersistentDataContainer();
+        String text = pdc.get(activeTitleKey, PersistentDataType.STRING);
+        if (text == null || text.isBlank()) {
+            return Optional.empty();
+        }
+        Integer priority = pdc.get(activePriorityKey, PersistentDataType.INTEGER);
+        return Optional.of(new AwardedTitle(text, priority == null ? AwardedTitle.MIN_PRIORITY : priority, false,
+            null, pdc.get(activeReasonKey, PersistentDataType.STRING)));
     }
 
     @Override
     public void clearPlayerTitle(Player player) {
         player.getPersistentDataContainer().remove(activeTitleKey);
         player.getPersistentDataContainer().remove(activePriorityKey);
+        player.getPersistentDataContainer().remove(activeReasonKey);
         removeDisplay(player);
         updateTabName(player, null);
     }

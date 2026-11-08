@@ -24,11 +24,12 @@ import java.util.stream.Collectors;
 public final class StaticTitleRegistry {
 
     /** A resolved static match: which rule fired, its main priority, and the randomly chosen title. */
-    public record StaticMatch(String ruleId, int triggerPriority, AwardedTitle title) {}
+    public record StaticMatch(String ruleId, String trigger, int triggerPriority, AwardedTitle title) {}
 
     private record Variant(String title, int priority) {}
 
-    private record Rule(String id, EventCategory category, Predicate<EventContext> matcher, List<Variant> pool) {
+    private record Rule(String id, EventCategory category, String trigger, Predicate<EventContext> matcher,
+                        List<Variant> pool) {
         Variant main() {
             return pool.getFirst();
         }
@@ -52,174 +53,174 @@ public final class StaticTitleRegistry {
         List<Rule> r = new ArrayList<>();
 
         // ---- BOSS_KILL -------------------------------------------------------------------------
-        add(r, "dragon_slayer", EventCategory.BOSS_KILL, c -> subject(c, "ENDER_DRAGON"),
+        add(r, "dragon_slayer", EventCategory.BOSS_KILL, "Killed the Ender Dragon", c -> subject(c, "ENDER_DRAGON"),
             v("<gradient:#7b2ff7:#f107a3><bold>Dragonslayer</bold></gradient>", 100),
             v("<gradient:#f107a3:#7b2ff7><bold>Dragon Down</bold></gradient>", 98),
             v("<light_purple><bold>Scale Collector</bold></light_purple>", 96));
-        add(r, "withered", EventCategory.BOSS_KILL, c -> subject(c, "WITHER"),
+        add(r, "withered", EventCategory.BOSS_KILL, "Killed the Wither", c -> subject(c, "WITHER"),
             v("<gradient:#555555:#aaaaaa><bold>Withered</bold></gradient>", 95),
             v("<gradient:#aaaaaa:#555555><bold>Wither Wipe</bold></gradient>", 94),
             v("<dark_gray><bold>Skull Collector</bold></dark_gray>", 92));
-        add(r, "warden_whisperer", EventCategory.BOSS_KILL, c -> subject(c, "WARDEN"),
+        add(r, "warden_whisperer", EventCategory.BOSS_KILL, "Killed the Warden", c -> subject(c, "WARDEN"),
             v("<dark_aqua><bold>Warden Whisperer</bold></dark_aqua>", 90),
             v("<gradient:#003b46:#07575b><bold>Deep Dark Dominator</bold></gradient>", 88),
             v("<aqua><bold>Sonic Boom Survivor</bold></aqua>", 86));
-        add(r, "elder_ender", EventCategory.BOSS_KILL, c -> subject(c, "ELDER_GUARDIAN"),
+        add(r, "elder_ender", EventCategory.BOSS_KILL, "Killed an Elder Guardian", c -> subject(c, "ELDER_GUARDIAN"),
             v("<aqua>Elder Ender</aqua>", 85),
             v("<aqua>Guardian Grinder</aqua>", 83),
             v("<dark_aqua>Temple Terror</dark_aqua>", 81));
-        add(r, "boss_breeze", EventCategory.BOSS_KILL, c -> subject(c, "BREEZE"),
+        add(r, "boss_breeze", EventCategory.BOSS_KILL, "Killed a Breeze", c -> subject(c, "BREEZE"),
             v("<gradient:#a8edea:#fed6e3>Breeze Tamer</gradient>", 76),
             v("<gradient:#fed6e3:#a8edea>Wind Walker</gradient>", 78),
             v("<white>Breeze Breaker</white>", 74));
 
         // ---- DEATH_MOB -------------------------------------------------------------------------
-        add(r, "creeper_consecutive", EventCategory.DEATH_MOB, c -> subject(c, "CREEPER") && c.streakCount() >= 3,
+        add(r, "creeper_consecutive", EventCategory.DEATH_MOB, "Killed by a Creeper 3+ times in a row", c -> subject(c, "CREEPER") && c.streakCount() >= 3,
             v("<gradient:#b7f8db:#50a7c2><bold>Creeper Magnet</bold></gradient>", 80),
             v("<green><bold>Sssss… Again</bold></green>", 78),
             v("<gradient:#50a7c2:#b7f8db><bold>Boom Loop</bold></gradient>", 72));
-        add(r, "creeper_hugger", EventCategory.DEATH_MOB, c -> subject(c, "CREEPER"),
+        add(r, "creeper_hugger", EventCategory.DEATH_MOB, "Killed by a Creeper", c -> subject(c, "CREEPER"),
             v("<green>Creeper Hugger</green>", 30),
             v("<green>Green Hug</green>", 28));
-        add(r, "zombie_snack", EventCategory.DEATH_MOB, c -> subject(c, "ZOMBIE"),
+        add(r, "zombie_snack", EventCategory.DEATH_MOB, "Killed by a Zombie", c -> subject(c, "ZOMBIE"),
             v("<dark_green>Zombie Snack</dark_green>", 25),
             v("<dark_green>Zombie Chow</dark_green>", 23));
-        add(r, "skeleton_target", EventCategory.DEATH_MOB, c -> subject(c, "SKELETON"),
+        add(r, "skeleton_target", EventCategory.DEATH_MOB, "Killed by a Skeleton", c -> subject(c, "SKELETON"),
             v("<gray>Arrow Magnet</gray>", 25),
             v("<white>Bone Zone</white>", 22));
-        add(r, "spider_supper", EventCategory.DEATH_MOB, c -> subject(c, "SPIDER"),
+        add(r, "spider_supper", EventCategory.DEATH_MOB, "Killed by a Spider", c -> subject(c, "SPIDER"),
             v("<dark_purple>Webbed Wonder</dark_purple>", 26),
             v("<dark_purple>Spider’s Web</dark_purple>", 24));
-        add(r, "enderman_gaze", EventCategory.DEATH_MOB, c -> subject(c, "ENDERMAN"),
+        add(r, "enderman_gaze", EventCategory.DEATH_MOB, "Killed by an Enderman", c -> subject(c, "ENDERMAN"),
             v("<dark_purple>Gaze Collector</dark_purple>", 32),
             v("<light_purple>Enderman’s Stare</light_purple>", 31));
-        add(r, "brute_force", EventCategory.DEATH_MOB, c -> subject(c, "PIGLIN_BRUTE"),
+        add(r, "brute_force", EventCategory.DEATH_MOB, "Killed by a Piglin Brute", c -> subject(c, "PIGLIN_BRUTE"),
             v("<gold>Brute Force</gold>", 38),
             v("<gold>Brute’s Beating</gold>", 40));
-        add(r, "guardian_gulp", EventCategory.DEATH_MOB, c -> subject(c, "ELDER_GUARDIAN"),
+        add(r, "guardian_gulp", EventCategory.DEATH_MOB, "Killed by an Elder Guardian", c -> subject(c, "ELDER_GUARDIAN"),
             v("<aqua>Ocean's Snack</aqua>", 45),
             v("<aqua>Elder’s Appetite</aqua>", 42));
-        add(r, "deep_dark_victim", EventCategory.DEATH_MOB, c -> c.biome().equalsIgnoreCase("DEEP_DARK"),
+        add(r, "deep_dark_victim", EventCategory.DEATH_MOB, "Killed by a mob in the Deep Dark", c -> c.biome().equalsIgnoreCase("DEEP_DARK"),
             v("<dark_gray>Darkness Dweller</dark_gray>", 50),
             v("<dark_aqua>Deep Dark Dinner</dark_aqua>", 55),
             v("<dark_gray>Sculk Snack</dark_gray>", 48));
-        add(r, "mob_naked", EventCategory.DEATH_MOB, c -> c.armorSummary().equalsIgnoreCase("NONE"),
+        add(r, "mob_naked", EventCategory.DEATH_MOB, "Killed by a mob while wearing no armor", c -> c.armorSummary().equalsIgnoreCase("NONE"),
             v("<yellow>Fashionably Fragile</yellow>", 29),
             v("<yellow>Naked & Afraid</yellow>", 27));
-        add(r, "mob_totem", EventCategory.DEATH_MOB, c -> c.heldItem().equalsIgnoreCase("TOTEM_OF_UNDYING"),
+        add(r, "mob_totem", EventCategory.DEATH_MOB, "Killed by a mob while holding a Totem", c -> c.heldItem().equalsIgnoreCase("TOTEM_OF_UNDYING"),
             v("<gold>Totem Tease</gold>", 33),
             v("<gold>Totem Fail</gold>", 35));
-        add(r, "mob_outplayed", EventCategory.DEATH_MOB, c -> subject(c, "PLAYER"),
+        add(r, "mob_outplayed", EventCategory.DEATH_MOB, "Killed by another player", c -> subject(c, "PLAYER"),
             v("<red>Thoroughly Outplayed</red>", 34),
             v("<red>Outplayed</red>", 36));
 
         // ---- DEATH_ENV -------------------------------------------------------------------------
-        add(r, "fall_from_grace", EventCategory.DEATH_ENV, c -> subject(c, "FALL"),
+        add(r, "fall_from_grace", EventCategory.DEATH_ENV, "Died from fall damage", c -> subject(c, "FALL"),
             v("<gold>Gravity's Favorite</gold>", 20),
             v("<gold>Gravity Wins</gold>", 20));
-        add(r, "void_vacation", EventCategory.DEATH_ENV, c -> subject(c, "VOID"),
+        add(r, "void_vacation", EventCategory.DEATH_ENV, "Fell into the void", c -> subject(c, "VOID"),
             v("<dark_purple>Void Vacation</dark_purple>", 25),
             v("<dark_purple>Voided</dark_purple>", 25));
-        add(r, "lava_lounge", EventCategory.DEATH_ENV, c -> subject(c, "LAVA"),
+        add(r, "lava_lounge", EventCategory.DEATH_ENV, "Died in lava", c -> subject(c, "LAVA"),
             v("<red>Lava Lounge</red>", 22),
             v("<red>Lava Bath</red>", 22));
-        add(r, "fire_starter", EventCategory.DEATH_ENV, c -> subject(c, "FIRE"),
+        add(r, "fire_starter", EventCategory.DEATH_ENV, "Burned to death", c -> subject(c, "FIRE"),
             v("<gold>Well Done</gold>", 18),
             v("<gold>Crispy</gold>", 18));
-        add(r, "drowned", EventCategory.DEATH_ENV, c -> subject(c, "DROWNING"),
+        add(r, "drowned", EventCategory.DEATH_ENV, "Drowned", c -> subject(c, "DROWNING"),
             v("<blue>Bubble Breaker</blue>", 19),
             v("<blue>Waterlogged</blue>", 19));
-        add(r, "suffocated", EventCategory.DEATH_ENV, c -> subject(c, "SUFFOCATION"),
+        add(r, "suffocated", EventCategory.DEATH_ENV, "Suffocated", c -> subject(c, "SUFFOCATION"),
             v("<gray>Wall Hugger</gray>", 17),
             v("<gray>Choked</gray>", 17));
-        add(r, "starving", EventCategory.DEATH_ENV, c -> subject(c, "STARVATION"),
+        add(r, "starving", EventCategory.DEATH_ENV, "Starved to death", c -> subject(c, "STARVATION"),
             v("<yellow>Snack Seeker</yellow>", 16),
             v("<yellow>Hangry</yellow>", 16));
-        add(r, "frozen_solid", EventCategory.DEATH_ENV, c -> subject(c, "FREEZE"),
+        add(r, "frozen_solid", EventCategory.DEATH_ENV, "Froze to death", c -> subject(c, "FREEZE"),
             v("<aqua>Ice Cold</aqua>", 21),
             v("<aqua>Frozen Assets</aqua>", 21));
-        add(r, "lightning_rod", EventCategory.DEATH_ENV, c -> subject(c, "LIGHTNING"),
+        add(r, "lightning_rod", EventCategory.DEATH_ENV, "Struck by lightning", c -> subject(c, "LIGHTNING"),
             v("<yellow>Storm Magnet</yellow>", 23),
             v("<yellow>Thunderstruck</yellow>", 23));
-        add(r, "cactus_kissed", EventCategory.DEATH_ENV, c -> subject(c, "CACTUS"),
+        add(r, "cactus_kissed", EventCategory.DEATH_ENV, "Killed by a cactus", c -> subject(c, "CACTUS"),
             v("<green>Prickly Finish</green>", 15),
             v("<green>Cactus Kiss</green>", 15));
-        add(r, "berry_bush", EventCategory.DEATH_ENV, c -> subject(c, "SWEET_BERRY_BUSH"),
+        add(r, "berry_bush", EventCategory.DEATH_ENV, "Killed by a sweet berry bush", c -> subject(c, "SWEET_BERRY_BUSH"),
             v("<dark_green>Berry Bruised</dark_green>", 14),
             v("<dark_red>Berry Bad</dark_red>", 14));
-        add(r, "wall_flight", EventCategory.DEATH_ENV, c -> subject(c, "FLY_INTO_WALL"),
+        add(r, "wall_flight", EventCategory.DEATH_ENV, "Flew into a wall", c -> subject(c, "FLY_INTO_WALL"),
             v("<gray>Wall Pilot</gray>", 24),
             v("<gray>Wall Check</gray>", 24));
-        add(r, "entity_boom", EventCategory.DEATH_ENV, c -> subject(c, "ENTITY_EXPLOSION"),
+        add(r, "entity_boom", EventCategory.DEATH_ENV, "Blown up by an explosion", c -> subject(c, "ENTITY_EXPLOSION"),
             v("<red>Blast Radius</red>", 26),
             v("<red><bold>Kaboom</bold></red>", 27));
 
         // ---- PVP_KILL --------------------------------------------------------------------------
-        add(r, "pvp_streak", EventCategory.PVP_KILL, c -> c.streakCount() >= 5,
+        add(r, "pvp_streak", EventCategory.PVP_KILL, "Killed the same player 5+ times in a row", c -> c.streakCount() >= 5,
             v("<gradient:#f6d365:#fda085><bold>Unstoppable</bold></gradient>", 75),
             v("<gradient:#ff416c:#ff4b2b><bold>Streak Demon</bold></gradient>", 72));
-        add(r, "pvp_sword", EventCategory.PVP_KILL, c -> c.heldItem().endsWith("SWORD"),
+        add(r, "pvp_sword", EventCategory.PVP_KILL, "Won a PvP fight with a sword", c -> c.heldItem().endsWith("SWORD"),
             v("<red>Blade Runner</red>", 48),
             v("<white>Sword Saint</white>", 50));
-        add(r, "pvp_axe", EventCategory.PVP_KILL, c -> c.heldItem().endsWith("AXE"),
+        add(r, "pvp_axe", EventCategory.PVP_KILL, "Won a PvP fight with an axe", c -> c.heldItem().endsWith("AXE"),
             v("<gold>Axe Marksman</gold>", 46),
             v("<dark_red>Axe Murderer</dark_red>", 47));
-        add(r, "pvp_naked", EventCategory.PVP_KILL, c -> c.armorSummary().equalsIgnoreCase("NONE"),
+        add(r, "pvp_naked", EventCategory.PVP_KILL, "Won a PvP fight wearing no armor", c -> c.armorSummary().equalsIgnoreCase("NONE"),
             v("<yellow>Brave Threads</yellow>", 43),
             v("<yellow>Naked Aggression</yellow>", 44));
-        add(r, "pvp_deepdark", EventCategory.PVP_KILL, c -> c.biome().equalsIgnoreCase("DEEP_DARK"),
+        add(r, "pvp_deepdark", EventCategory.PVP_KILL, "Won a PvP fight in the Deep Dark", c -> c.biome().equalsIgnoreCase("DEEP_DARK"),
             v("<dark_aqua>Dark Duelist</dark_aqua>", 52),
             v("<dark_aqua>Deep Dark Duel</dark_aqua>", 55));
 
         // ---- CLUTCH_SURVIVAL -------------------------------------------------------------------
-        add(r, "clutch_heart", EventCategory.CLUTCH_SURVIVAL, c -> number(c, "health_after", 2) <= 1,
+        add(r, "clutch_heart", EventCategory.CLUTCH_SURVIVAL, "Survived a hit with 1 HP or less left", c -> number(c, "health_after", 2) <= 1,
             v("<gradient:#ff512f:#dd2476><bold>Heartbreaker</bold></gradient>", 70),
             v("<red><bold>One Heart Wonder</bold></red>", 68));
-        add(r, "clutch_void", EventCategory.CLUTCH_SURVIVAL, c -> subject(c, "VOID"),
+        add(r, "clutch_void", EventCategory.CLUTCH_SURVIVAL, "Survived void damage on low health", c -> subject(c, "VOID"),
             v("<light_purple>Void Dodger</light_purple>", 62),
             v("<light_purple>Void Escape</light_purple>", 61));
-        add(r, "clutch_lava", EventCategory.CLUTCH_SURVIVAL, c -> subject(c, "LAVA"),
+        add(r, "clutch_lava", EventCategory.CLUTCH_SURVIVAL, "Survived lava on low health", c -> subject(c, "LAVA"),
             v("<gold>Hot Foot</gold>", 58),
             v("<gold>Lava Legs</gold>", 57));
-        add(r, "clutch_water", EventCategory.CLUTCH_SURVIVAL, c -> c.heldItem().contains("WATER_BUCKET"),
+        add(r, "clutch_water", EventCategory.CLUTCH_SURVIVAL, "Clutched a low-health hit holding a water bucket", c -> c.heldItem().contains("WATER_BUCKET"),
             v("<blue>Bucket Legend</blue>", 65),
             v("<blue>Bucket Clutch</blue>", 64));
-        add(r, "clutch_totem", EventCategory.CLUTCH_SURVIVAL, c -> c.heldItem().equalsIgnoreCase("TOTEM_OF_UNDYING"),
+        add(r, "clutch_totem", EventCategory.CLUTCH_SURVIVAL, "Clutched a low-health hit holding a Totem", c -> c.heldItem().equalsIgnoreCase("TOTEM_OF_UNDYING"),
             v("<gold>Not Today</gold>", 60),
             v("<gold>Totem Time</gold>", 59));
 
         // ---- MINING ----------------------------------------------------------------------------
-        add(r, "ancient_debris", EventCategory.MINING, c -> subject(c, "ANCIENT_DEBRIS"),
+        add(r, "ancient_debris", EventCategory.MINING, "Mined Ancient Debris", c -> subject(c, "ANCIENT_DEBRIS"),
             v("<gradient:#f7971e:#ffd200><bold>Ancient Prospector</bold></gradient>", 40),
             v("<gradient:#4a3b3b:#9e7b6f><bold>Netherite Dreams</bold></gradient>", 42));
-        add(r, "diamond_digger", EventCategory.MINING,
+        add(r, "diamond_digger", EventCategory.MINING, "Mined diamond ore",
             c -> subject(c, "DIAMOND_ORE") || subject(c, "DEEPSLATE_DIAMOND_ORE"),
             v("<aqua>Diamond Digger</aqua>", 35),
             v("<aqua><bold>Diamond Hands</bold></aqua>", 38));
-        add(r, "spawner_smasher", EventCategory.MINING, c -> subject(c, "SPAWNER"),
+        add(r, "spawner_smasher", EventCategory.MINING, "Broke a mob spawner", c -> subject(c, "SPAWNER"),
             v("<dark_purple>Spawner Smasher</dark_purple>", 35),
             v("<dark_purple>Spawner Hunter</dark_purple>", 36));
-        add(r, "mining_low_y", EventCategory.MINING, c -> number(c, "y", 999) <= -50,
+        add(r, "mining_low_y", EventCategory.MINING, "Mined something rare near bedrock (Y -50 or lower)", c -> number(c, "y", 999) <= -50,
             v("<dark_gray>Deep Delver</dark_gray>", 32),
             v("<dark_gray>Bedrock Bound</dark_gray>", 33));
 
         // ---- SHENANIGANS -----------------------------------------------------------------------
-        add(r, "rotten_feast", EventCategory.SHENANIGANS, c -> subject(c, "ROTTEN_FLESH"),
+        add(r, "rotten_feast", EventCategory.SHENANIGANS, "Ate Rotten Flesh", c -> subject(c, "ROTTEN_FLESH"),
             v("<green>Rotten Gourmet</green>", 10),
             v("<dark_green>Rotten Choice</dark_green>", 12));
-        add(r, "suspicious_snack", EventCategory.SHENANIGANS, c -> subject(c, "SUSPICIOUS_STEW"),
+        add(r, "suspicious_snack", EventCategory.SHENANIGANS, "Ate Suspicious Stew", c -> subject(c, "SUSPICIOUS_STEW"),
             v("<light_purple>Stew Ponderer</light_purple>", 18),
             v("<light_purple>Mystery Stew</light_purple>", 19));
-        add(r, "potato_pro", EventCategory.SHENANIGANS, c -> subject(c, "POISONOUS_POTATO"),
+        add(r, "potato_pro", EventCategory.SHENANIGANS, "Ate a Poisonous Potato", c -> subject(c, "POISONOUS_POTATO"),
             v("<green>Potato Risk-Taker</green>", 20),
             v("<green>Potato Roulette</green>", 22));
-        add(r, "puffer_puffer", EventCategory.SHENANIGANS, c -> subject(c, "PUFFERFISH"),
+        add(r, "puffer_puffer", EventCategory.SHENANIGANS, "Ate a Pufferfish", c -> subject(c, "PUFFERFISH"),
             v("<yellow>Pointy Palate</yellow>", 19),
             v("<yellow>Puffer Mistake</yellow>", 20));
-        add(r, "cake_connoisseur", EventCategory.SHENANIGANS, c -> subject(c, "CAKE"),
+        add(r, "cake_connoisseur", EventCategory.SHENANIGANS, "Ate cake while hungry", c -> subject(c, "CAKE"),
             v("<gold>Cake Connoisseur</gold>", 16),
             v("<light_purple>Cake Day</light_purple>", 17));
-        add(r, "enchanted_appetite", EventCategory.SHENANIGANS, c -> subject(c, "ENCHANTED_GOLDEN_APPLE"),
+        add(r, "enchanted_appetite", EventCategory.SHENANIGANS, "Ate an Enchanted Golden Apple", c -> subject(c, "ENCHANTED_GOLDEN_APPLE"),
             v("<gradient:#fceabb:#f8b500>Golden Appetite</gradient>", 24),
             v("<gradient:#f8b500:#fceabb><bold>God Apple</bold></gradient>", 26));
 
@@ -232,7 +233,7 @@ public final class StaticTitleRegistry {
             List<Variant> pool = rule.pool();
             int index = pool.size() == 1 ? 0 : Math.floorMod(variantPicker.applyAsInt(pool.size()), pool.size());
             Variant chosen = pool.get(index);
-            return new StaticMatch(rule.id(), rule.priority(),
+            return new StaticMatch(rule.id(), rule.trigger(), rule.priority(),
                 new AwardedTitle(chosen.title(), chosen.priority(), false));
         });
     }
@@ -272,9 +273,9 @@ public final class StaticTitleRegistry {
         return new Variant(title, priority);
     }
 
-    private static void add(List<Rule> rules, String id, EventCategory category,
+    private static void add(List<Rule> rules, String id, EventCategory category, String trigger,
                             Predicate<EventContext> matcher, Variant... pool) {
-        rules.add(new Rule(id, category, matcher, List.of(pool)));
+        rules.add(new Rule(id, category, trigger, matcher, List.of(pool)));
     }
 
     private static boolean subject(EventContext c, String value) {
@@ -303,6 +304,10 @@ public final class StaticTitleRegistry {
     // ---- test hooks ----------------------------------------------------------------------------
     List<String> ruleIdsForTest() {
         return rules.stream().map(Rule::id).toList();
+    }
+
+    List<String> triggersForTest() {
+        return rules.stream().map(Rule::trigger).toList();
     }
 
     List<Integer> prioritiesForTest() {

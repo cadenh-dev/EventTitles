@@ -88,3 +88,10 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
   only style tags; click/hover/insert/selector/nbt/key/lang tags are stripped. Never render raw LLM text.
 - Comments refer to the player as `<player>`; `CommentaryBroadcaster` fills it with `Placeholder.unparsed`
   on the main thread, and applies `chat.audience` and the per-player `chat.cooldown_seconds`.
+
+## 11. Title reasons (hover text)
+- `AwardedTitle.reason()` is PLAIN TEXT ("Why: …\nEvent: …\nSource: …"), built Bukkit-free by
+  `engine/TitleReasons` from the EventContext + rule trigger / LLM provider; it costs no LLM tokens.
+- It is persisted in PDC `eventtitles:active_reason` and rendered only via `display/TitleHover`
+  (`Component.text`, never MiniMessage). Every code path that awards a title should attach one.
+- `/title info [player]` (permission `titles.info`, default true) shows the current title with hover.

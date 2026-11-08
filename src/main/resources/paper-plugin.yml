@@ -4,6 +4,11 @@ main: com.example.titles.TitlesPlugin
 api-version: '26.3'
 description: Dynamic, reactive titles above player names driven by in-game events.
 permissions:
+  titles.info:
+    description: Allows /title info to see a player's title and why they got it
+    default: true
   titles.admin:
     description: Allows administrative management of event titles
     default: op
+    children:
+      titles.info: true

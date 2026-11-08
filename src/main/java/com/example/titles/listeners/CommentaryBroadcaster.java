@@ -3,6 +3,7 @@ package com.example.titles.listeners;
 import com.example.titles.api.AwardedTitle;
 import com.example.titles.api.ChatSettings;
 import com.example.titles.api.TitlesSettings;
+import com.example.titles.display.TitleHover;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -43,7 +45,10 @@ public final class CommentaryBroadcaster {
         }
         Component line;
         try {
-            Component comment = MM.deserialize(title.comment(), Placeholder.unparsed("player", subject.getName()));
+            // Hovering the comment shows the title it came with and why it was awarded.
+            Component comment = MM.deserialize(title.comment(), Placeholder.unparsed("player", subject.getName()))
+                .hoverEvent(HoverEvent.showText(TitleHover.card(MM.deserialize(title.miniMessageText()),
+                    title.reason())));
             line = MM.deserialize(chat.format(), Placeholder.component("comment", comment),
                 Placeholder.unparsed("player", subject.getName()));
         } catch (RuntimeException malformed) {
