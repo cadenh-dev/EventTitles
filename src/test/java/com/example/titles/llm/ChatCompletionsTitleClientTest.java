@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.example.titles.api.AwardedTitle;
 import com.example.titles.api.EventCategory;
 import com.example.titles.api.EventContext;
+import com.example.titles.api.LlmProvider;
 import com.example.titles.api.TitleText;
 import com.example.titles.api.TitlesSettings;
 import com.google.gson.JsonObject;
@@ -25,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
-class DeepSeekTitleClientTest {
+class ChatCompletionsTitleClientTest {
     private static final EventContext CONTEXT = new EventContext(UUID.randomUUID(), "IgnoredName",
         EventCategory.DEATH_MOB, "CREEPER", "PLAINS", "DIAMOND_SWORD", "IRON_HELMET", 2, "health=0.5");
 
@@ -92,8 +93,8 @@ class DeepSeekTitleClientTest {
 
     @Test
     void malformedJsonMissingChoicesAndServerErrorReturnEmpty() throws Exception {
-        assertTrue(DeepSeekTitleClient.parseResponse(200, "not json", -1).isEmpty());
-        assertTrue(DeepSeekTitleClient.parseResponse(200, "{}", -1).isEmpty());
+        assertTrue(ChatCompletionsTitleClient.parseResponse(200, "not json", -1).isEmpty());
+        assertTrue(ChatCompletionsTitleClient.parseResponse(200, "{}", -1).isEmpty());
         try (FakeServer server = new FakeServer(exchange -> respond(exchange, 500, "failure"))) {
             assertTrue(client(server, settings(server, true, "test-key", 3, -1))
                 .generateTitle(CONTEXT).get(3, TimeUnit.SECONDS).isEmpty());
@@ -141,12 +142,54 @@ class DeepSeekTitleClientTest {
         }
     }
 
+    @Test
+    void grokRequestUsesGrokModelPersonaAndNoJsonMode() throws Exception {
+        AtomicReference<String> authorization = new AtomicReference<>();
+        AtomicReference<JsonObject> requestBody = new AtomicReference<>();
+        try (FakeServer server = new FakeServer(exchange -> {
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            requestBody.set(JsonParser.parseString(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8))
+                .getAsJsonObject());
+            // Grok replies without JSON mode may wrap the object in prose; the lenient parser must cope.
+            respond(exchange, 200, completion("ok here you go: {\"title\":\"<aqua>Ratio'd by Gravity</aqua>\",\"priority\":40}"));
+        })) {
+            AwardedTitle title = client(server, grokSettings(server, "xai-test-key"))
+                .generateTitle(CONTEXT).get(3, TimeUnit.SECONDS).orElseThrow();
+            assertEquals("<aqua>Ratio'd by Gravity</aqua>", title.miniMessageText());
+            assertEquals(40, title.priority());
+            assertEquals("Bearer xai-test-key", authorization.get());
+            assertEquals("grok-4.7", requestBody.get().get("model").getAsString());
+            assertEquals(0.9, requestBody.get().get("temperature").getAsDouble(), 1e-9);
+            assertFalse(requestBody.get().has("response_format"));
+            String system = requestBody.get().getAsJsonArray("messages").get(0).getAsJsonObject().get("content").getAsString();
+            assertTrue(system.contains("X/Twitter"));
+        }
+    }
+
+    @Test
+    void personasDifferPerProvider() {
+        assertTrue(ChatCompletionsTitleClient.persona(LlmProvider.DEEPSEEK).contains("sarcastic"));
+        assertTrue(ChatCompletionsTitleClient.persona(LlmProvider.GROK).contains("quote-tweeting"));
+    }
+
+    @Test
+    void providerLookupAndPlaceholderKeys() {
+        assertEquals(Optional.of(LlmProvider.GROK), LlmProvider.fromConfig("grok"));
+        assertEquals(Optional.of(LlmProvider.GROK), LlmProvider.fromConfig(" XAI "));
+        assertEquals(Optional.of(LlmProvider.DEEPSEEK), LlmProvider.fromConfig("DeepSeek"));
+        assertTrue(LlmProvider.fromConfig("openai").isEmpty());
+        assertTrue(TitlesSettings.isPlaceholderKey("sk-your-deepseek-key-here"));
+        assertTrue(TitlesSettings.isPlaceholderKey("xai-your-grok-key-here"));
+        assertTrue(TitlesSettings.isPlaceholderKey(""));
+        assertFalse(TitlesSettings.isPlaceholderKey("xai-abc123"));
+    }
+
     private static Optional<AwardedTitle> parse(String content) {
         return parse(content, -1);
     }
 
     private static Optional<AwardedTitle> parse(String content, int maxLength) {
-        return DeepSeekTitleClient.parseResponse(200, completion(content), maxLength);
+        return ChatCompletionsTitleClient.parseResponse(200, completion(content), maxLength);
     }
 
     private static String completion(String content, int priority) {
@@ -158,13 +201,18 @@ class DeepSeekTitleClientTest {
         return "{\"choices\":[{\"message\":{\"content\":" + new com.google.gson.Gson().toJson(content) + "}}]}";
     }
 
-    private static DeepSeekTitleClient client(FakeServer server, TitlesSettings settings) {
-        return new DeepSeekTitleClient(() -> settings, HttpClient.newHttpClient());
+    private static ChatCompletionsTitleClient client(FakeServer server, TitlesSettings settings) {
+        return new ChatCompletionsTitleClient(() -> settings, HttpClient.newHttpClient());
     }
 
     private static TitlesSettings settings(FakeServer server, boolean enabled, String key, int timeout, int maxLength) {
-        return new TitlesSettings(enabled, "deepseek", server.endpoint(), "deepseek-chat", key,
+        return new TitlesSettings(enabled, LlmProvider.DEEPSEEK, server.endpoint(), "deepseek-chat", key,
             timeout, 0.7, maxLength, 5, "<gray>Default</gray>");
+    }
+
+    private static TitlesSettings grokSettings(FakeServer server, String key) {
+        return new TitlesSettings(true, LlmProvider.GROK, server.endpoint(), "grok-4.7", key,
+            3, 0.9, -1, 5, "<gray>Default</gray>");
     }
 
     private static void respond(HttpExchange exchange, int status, String body) throws IOException {

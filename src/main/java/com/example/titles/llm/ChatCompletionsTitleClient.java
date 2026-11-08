@@ -2,6 +2,7 @@ package com.example.titles.llm;
 
 import com.example.titles.api.AwardedTitle;
 import com.example.titles.api.EventContext;
+import com.example.titles.api.LlmProvider;
 import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.TitleText;
 import com.example.titles.api.TitlesSettings;
@@ -23,19 +24,19 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.util.regex.Pattern;
 
-/** Bukkit-free asynchronous DeepSeek chat completions client. */
-public final class DeepSeekTitleClient implements LlmTitleGenerator {
-    private static final Logger LOGGER = Logger.getLogger("EventTitles/DeepSeek");
+/** Bukkit-free async client for OpenAI-compatible chat completions (DeepSeek, xAI Grok). */
+public final class ChatCompletionsTitleClient implements LlmTitleGenerator {
+    private static final Logger LOGGER = Logger.getLogger("EventTitles/LLM");
     private static final Gson GSON = new GsonBuilder().create();
     private static final Pattern LEGACY_COLOR = Pattern.compile("&[0-9a-fk-or]", Pattern.CASE_INSENSITIVE);
     private final Supplier<TitlesSettings> settings;
     private final HttpClient http;
 
-    public DeepSeekTitleClient(Supplier<TitlesSettings> settings) {
+    public ChatCompletionsTitleClient(Supplier<TitlesSettings> settings) {
         this(settings, defaultClient(settings));
     }
 
-    public DeepSeekTitleClient(Supplier<TitlesSettings> settings, HttpClient http) {
+    public ChatCompletionsTitleClient(Supplier<TitlesSettings> settings, HttpClient http) {
         this.settings = settings;
         this.http = http;
     }
@@ -57,10 +58,12 @@ public final class DeepSeekTitleClient implements LlmTitleGenerator {
             JsonObject body = new JsonObject();
             body.addProperty("model", s.llmModel());
             body.addProperty("temperature", s.llmTemperature());
-            body.addProperty("max_tokens", 120);
-            JsonObject responseFormat = new JsonObject();
-            responseFormat.addProperty("type", "json_object");
-            body.add("response_format", responseFormat);
+            body.addProperty("max_tokens", maxTokens(s.llmProvider()));
+            if (s.llmProvider().jsonMode()) {
+                JsonObject responseFormat = new JsonObject();
+                responseFormat.addProperty("type", "json_object");
+                body.add("response_format", responseFormat);
+            }
             var messages = new com.google.gson.JsonArray();
             JsonObject system = new JsonObject();
             system.addProperty("role", "system");
@@ -83,18 +86,38 @@ public final class DeepSeekTitleClient implements LlmTitleGenerator {
                 .orTimeout(timeout, TimeUnit.SECONDS)
                 .thenApply(response -> parseResponse(response.statusCode(), response.body(), s.maxTitleLength()))
                 .exceptionally(error -> {
-                    LOGGER.log(Level.FINE, "DeepSeek request failed", error);
+                    LOGGER.log(Level.FINE, "LLM request failed", error);
                     return Optional.empty();
                 });
         } catch (Exception error) {
-            LOGGER.log(Level.FINE, "Could not prepare DeepSeek request", error);
+            LOGGER.log(Level.FINE, "Could not prepare LLM request", error);
             return CompletableFuture.completedFuture(Optional.empty());
         }
     }
 
-    private static String systemPrompt(TitlesSettings settings) {
-        String prompt = "You are a sarcastic, witty Minecraft spectator/commentator who awards a short nickname title for what just happened. "
-            + "Reply with ONLY a JSON object exactly {\"title\": \"<color>...</color>\", \"priority\": 50}. "
+    /** Grok models may spend completion tokens on reasoning, so they get a larger budget. */
+    private static int maxTokens(LlmProvider provider) {
+        return switch (provider) {
+            case DEEPSEEK -> 120;
+            case GROK -> 512;
+        };
+    }
+
+    static String persona(LlmProvider provider) {
+        return switch (provider) {
+            case DEEPSEEK -> "You are a sarcastic, witty Minecraft spectator/commentator who awards a short "
+                + "nickname title for what just happened.";
+            case GROK -> "You are a terminally-online X/Twitter poster quote-tweeting a Minecraft clip of what just "
+                + "happened. Award a short nickname title in the voice of a viral reply: internet slang, meme "
+                + "energy and ruthless roasting are encouraged (think \"ratio'd by gravity\", \"main character "
+                + "syndrome\", \"skill issue\"). Keep it PG-13: no slurs, no hate, no sexual content, no real people.";
+        };
+    }
+
+    static String systemPrompt(TitlesSettings settings) {
+        String prompt = persona(settings.llmProvider()) + " "
+            + "Reply with ONLY a JSON object exactly {\"title\": \"<color>...</color>\", \"priority\": 50} "
+            + "and nothing else (no markdown, no explanation). "
             + "The title uses Kyori MiniMessage tags only (named colors like <red>, <gold>, hex <#ff8800>, <gradient:#a:#b>, <bold>, <italic>); "
             + "never legacy ampersand or section-sign color codes. Use 1–4 words, no player name, no quotes or emoji. "
             + "Priority is an integer from 1 to 89 reflecting how impressive or embarrassing; bosses are 80+, mundane deaths are 10–30.";
@@ -151,7 +174,7 @@ public final class DeepSeekTitleClient implements LlmTitleGenerator {
             priority = Math.clamp(priority, 1, 89);
             return Optional.of(new AwardedTitle(TitleText.truncateVisible(title, maxTitleLength), priority, true));
         } catch (Exception error) {
-            LOGGER.log(Level.FINE, "Could not parse DeepSeek response", error);
+            LOGGER.log(Level.FINE, "Could not parse LLM response", error);
             return Optional.empty();
         }
     }

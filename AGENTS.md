@@ -45,7 +45,7 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
 |---|---|---|
 | display | `PaperTitleDisplayManager implements TitleDisplayService` | `(Plugin plugin, Supplier<TitlesSettings> settings)` |
 | display | `DisplayLifecycleListener implements Listener` | `(Plugin plugin, TitleDisplayService displays)` |
-| llm | `DeepSeekTitleClient implements LlmTitleGenerator` | `(Supplier<TitlesSettings> settings)` and `(Supplier<TitlesSettings> settings, HttpClient http)` |
+| llm | `ChatCompletionsTitleClient implements LlmTitleGenerator` | `(Supplier<TitlesSettings> settings)` and `(Supplier<TitlesSettings> settings, HttpClient http)` |
 | engine | `StreakTracker implements StreakService` | `(Supplier<TitlesSettings> settings)` and `(Supplier<TitlesSettings> settings, Clock clock)` |
 | engine | `StaticTitleRegistry` | `()`; `Optional<AwardedTitle> findStaticMatch(EventContext)`; `int size()` |
 | engine | `HybridTitleResolver implements TitleResolverService` | `(StaticTitleRegistry registry, LlmTitleGenerator llm, Supplier<TitlesSettings> settings)` |
@@ -58,3 +58,13 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
 - Java records/`final` fields for immutable data; no static mutable singletons.
 - Log via `plugin.getLogger()` / `java.util.logging.Logger` — never `System.out`. Never log the API key.
 - Each worker touches only the files in its work order.
+
+## 8. LLM providers
+- All providers speak the OpenAI-compatible `/chat/completions` protocol through the single
+  `ChatCompletionsTitleClient`. Supported: `deepseek` (default; `DEEPSEEK_API_KEY`) and `grok`
+  (xAI, `https://api.x.ai/v1/chat/completions`; `XAI_API_KEY`).
+- Provider defaults (endpoint, model, key env var, temperature, timeout, JSON mode) live in
+  `api/LlmProvider`; per-provider persona and token budget live in the client. Adding a provider =
+  new enum constant + persona case + a `llm.providers.<id>` block in `config.yml`.
+- `TitlesSettings` carries values already resolved for the active provider; nothing else may branch on
+  provider-specific config keys.

@@ -1,5 +1,6 @@
 package com.example.titles;
 
+import com.example.titles.api.LlmProvider;
 import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.StreakService;
 import com.example.titles.api.TitleDisplayService;
@@ -12,7 +13,8 @@ import com.example.titles.engine.HybridTitleResolver;
 import com.example.titles.engine.StaticTitleRegistry;
 import com.example.titles.engine.StreakTracker;
 import com.example.titles.listeners.GameplayEventCollector;
-import com.example.titles.llm.DeepSeekTitleClient;
+import com.example.titles.llm.ChatCompletionsTitleClient;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.bukkit.Bukkit;
@@ -34,7 +36,7 @@ public final class TitlesPlugin extends JavaPlugin {
 
         StreakTracker streakTracker = new StreakTracker(settings::get);
         StreakService streaks = streakTracker;
-        LlmTitleGenerator llm = new DeepSeekTitleClient(settings::get);
+        LlmTitleGenerator llm = new ChatCompletionsTitleClient(settings::get);
         StaticTitleRegistry registry = new StaticTitleRegistry();
         TitleResolverService resolver = new HybridTitleResolver(registry, llm, settings::get);
         displayService = new PaperTitleDisplayManager(this, settings::get);
@@ -71,21 +73,43 @@ public final class TitlesPlugin extends JavaPlugin {
         reloadConfig();
         FileConfiguration c = getConfig();
         TitlesSettings d = TitlesSettings.defaults();
+
+        String providerName = c.getString("llm.provider", LlmProvider.DEEPSEEK.configId());
+        LlmProvider provider = LlmProvider.fromConfig(providerName).orElseGet(() -> {
+            getLogger().warning("Unknown llm.provider '" + providerName + "'; expected one of "
+                + Arrays.stream(LlmProvider.values()).map(LlmProvider::configId).toList() + ". Using deepseek.");
+            return LlmProvider.DEEPSEEK;
+        });
+        String section = "llm.providers." + provider.configId() + ".";
+        // Configs written before multi-provider support kept DeepSeek's values directly under "llm.".
+        boolean legacy = provider == LlmProvider.DEEPSEEK;
+
         TitlesSettings loaded = new TitlesSettings(
             c.getBoolean("llm.enabled", d.llmEnabled()),
-            c.getString("llm.provider", d.llmProvider()),
-            c.getString("llm.endpoint", d.llmEndpoint()),
-            c.getString("llm.model", d.llmModel()),
-            c.getString("llm.api_key", d.llmApiKey()),
-            Math.max(1, c.getInt("llm.timeout_seconds", d.llmTimeoutSeconds())),
-            c.getDouble("llm.temperature", d.llmTemperature()),
+            provider,
+            providerString(c, section + "endpoint", legacy ? "llm.endpoint" : null, provider.defaultEndpoint()),
+            providerString(c, section + "model", legacy ? "llm.model" : null, provider.defaultModel()),
+            providerString(c, section + "api_key", legacy ? "llm.api_key" : null, ""),
+            Math.max(1, c.getInt(section + "timeout_seconds",
+                c.getInt("llm.timeout_seconds", provider.defaultTimeoutSeconds()))),
+            c.getDouble(section + "temperature", c.getDouble("llm.temperature", provider.defaultTemperature())),
             c.getInt("settings.max_title_length", d.maxTitleLength()),
             Math.max(1, c.getInt("settings.streak_window_minutes", d.streakWindowMinutes())),
             c.getString("fallbacks.default_title", d.defaultTitle()));
         settings.set(loaded);
         if (loaded.llmEnabled() && loaded.effectiveApiKey() == null) {
-            getLogger().warning("llm.enabled is true but no DeepSeek API key is configured "
-                + "(set llm.api_key or DEEPSEEK_API_KEY); using static titles only.");
+            getLogger().warning("llm.enabled is true but no " + provider.configId() + " API key is configured (set "
+                + section + "api_key or " + provider.apiKeyEnv() + "); using static titles only.");
+        } else if (loaded.llmEnabled()) {
+            getLogger().info("LLM provider: " + provider.configId() + " (" + loaded.llmModel() + ")");
         }
+    }
+
+    private static String providerString(FileConfiguration c, String path, String legacyPath, String fallback) {
+        String value = c.getString(path);
+        if ((value == null || value.isBlank()) && legacyPath != null) {
+            value = c.getString(legacyPath);
+        }
+        return value == null || value.isBlank() ? fallback : value.trim();
     }
 }

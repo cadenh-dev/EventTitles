@@ -1,11 +1,29 @@
 llm:
   enabled: true
+
+  # Which LLM writes contextual titles:
+  #   "deepseek" - very cheap, dry sarcastic spectator humour
+  #   "grok"     - xAI Grok, spicier terminally-online X/Twitter style roasts ("xai" also accepted)
   provider: "deepseek"
-  endpoint: "https://api.deepseek.com/chat/completions"
-  model: "deepseek-chat"
-  api_key: "sk-your-deepseek-key-here" # Can also be set via DEEPSEEK_API_KEY environment variable
+
+  # Shared defaults; each provider below may override temperature / timeout_seconds.
+  # If the LLM does not answer within the timeout, a static title is used instead.
   timeout_seconds: 3
   temperature: 0.7
+
+  providers:
+    deepseek:
+      endpoint: "https://api.deepseek.com/chat/completions"
+      model: "deepseek-chat"
+      api_key: "sk-your-deepseek-key-here" # Or set the DEEPSEEK_API_KEY environment variable
+
+    grok:
+      endpoint: "https://api.x.ai/v1/chat/completions"
+      model: "grok-4.7"
+      api_key: "xai-your-grok-key-here" # Or set the XAI_API_KEY environment variable
+      temperature: 0.9
+      # Grok models can take longer to answer than DeepSeek.
+      timeout_seconds: 5
 
 settings:
   # Maximum visible characters for a title (excluding MiniMessage tags).
