@@ -68,3 +68,12 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
   new enum constant + persona case + a `llm.providers.<id>` block in `config.yml`.
 - `TitlesSettings` carries values already resolved for the active provider; nothing else may branch on
   provider-specific config keys.
+
+## 9. Display positioning (supersedes the original passenger design)
+- Title displays must NOT be mounted with `player.addPassenger`. Paper's `CraftPlayer#teleport0` returns
+  `false` for cross-world teleports of any player with passengers *before* `PlayerTeleportEvent` fires,
+  so a mounted title would silently break other plugins' teleports (Multiverse, /spawn, /home...).
+- Instead `PaperTitleDisplayManager` runs one main-thread follow task (only while displays exist) that
+  teleports each display to `player.getLocation() + player.getHeight()` every tick with
+  `setTeleportDuration(1)` for client-side smoothing; moves over 8 blocks or across worlds respawn it.
+- Titles are hidden while the player is in spectator mode.
