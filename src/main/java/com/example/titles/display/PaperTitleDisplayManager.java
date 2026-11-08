@@ -1,6 +1,7 @@
 package com.example.titles.display;
 
 import com.example.titles.api.AwardedTitle;
+import com.example.titles.api.ShowcaseLines;
 import com.example.titles.api.TabListSettings;
 import com.example.titles.api.TitleDisplayService;
 import com.example.titles.api.TitleHistory;
@@ -16,7 +17,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -56,6 +61,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     private final NamespacedKey activePriorityKey;
     private final NamespacedKey activeReasonKey;
     private final NamespacedKey displayOwnerKey;
+    private final NamespacedKey showcaseKey;
     private final Map<UUID, TextDisplay> displays = new HashMap<>();
     /** Players whose tab-list name this plugin has set (so only those are reset). */
     private final Set<UUID> tabNamed = new HashSet<>();
@@ -77,6 +83,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         this.activePriorityKey = new NamespacedKey(plugin, "active_priority");
         this.activeReasonKey = new NamespacedKey(plugin, "active_reason");
         this.displayOwnerKey = new NamespacedKey(plugin, "display_owner");
+        this.showcaseKey = new NamespacedKey(plugin, "showcase");
     }
 
     @Override
@@ -102,7 +109,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
 
         TextDisplay display = displays.get(player.getUniqueId());
         if (display != null && display.isValid() && display.getWorld().equals(player.getWorld())) {
-            display.text(MiniMessage.miniMessage().deserialize(text));
+            display.text(displayText(player, text));
             updateTabName(player, text);
         } else {
             refreshDisplay(player); // also updates the tab name
@@ -149,6 +156,42 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     }
 
     @Override
+    public List<String> showcase(Player player) {
+        String json = player.getPersistentDataContainer().get(showcaseKey, PersistentDataType.STRING);
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonElement parsed = JsonParser.parseString(json);
+            if (!parsed.isJsonArray()) {
+                return List.of();
+            }
+            List<String> titles = new ArrayList<>();
+            for (JsonElement value : parsed.getAsJsonArray()) {
+                if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+                    titles.add(value.getAsString());
+                }
+            }
+            return List.copyOf(titles);
+        } catch (RuntimeException malformed) {
+            return List.of();
+        }
+    }
+
+    @Override
+    public void setShowcase(Player player, List<String> titles) {
+        List<String> capped = titles == null ? List.of() : titles.stream().filter(java.util.Objects::nonNull)
+            .limit(5).map(title -> TitleText.truncateVisible(title, settings.get().maxTitleLength())).toList();
+        if (capped.isEmpty()) {
+            player.getPersistentDataContainer().remove(showcaseKey);
+        } else {
+            player.getPersistentDataContainer().set(showcaseKey, PersistentDataType.STRING,
+                new Gson().toJson(capped));
+        }
+        refreshDisplay(player);
+    }
+
+    @Override
     public void refreshDisplay(Player player) {
         removeDisplay(player); // always first: guarantees at most one display per player
         String text = player.getPersistentDataContainer().get(activeTitleKey, PersistentDataType.STRING);
@@ -157,7 +200,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
             currentTitle(player).ifPresentOrElse(t -> titleCache.put(player.getUniqueId(), t),
                 () -> titleCache.remove(player.getUniqueId()));
         }
-        if (!player.isOnline() || player.isDead() || text == null
+        List<String> pinned = showcase(player);
+        if (!player.isOnline() || player.isDead() || (text == null && pinned.isEmpty())
             || player.getGameMode() == GameMode.SPECTATOR) { // spectators are invisible; don't out them
             return;
         }
@@ -165,7 +209,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         TitlesSettings config = settings.get();
         float offsetY = (float) config.displayOffsetY();
         TextDisplay display = player.getWorld().spawn(anchor(player), TextDisplay.class, d -> {
-            d.text(MiniMessage.miniMessage().deserialize(text));
+            d.text(displayText(player, text));
             d.setBillboard(Display.Billboard.CENTER);
             d.setSeeThrough(false);
             d.setDefaultBackground(false);
@@ -183,6 +227,13 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         }
         displays.put(player.getUniqueId(), display);
         ensureFollowTask();
+    }
+
+    private Component displayText(Player player, String activeTitleText) {
+        int maxLines = settings.get().showcase().enabled() ? settings.get().showcase().maxTitles() : 1;
+        List<String> lines = ShowcaseLines.compose(activeTitleText, showcase(player), maxLines);
+        return Component.join(JoinConfiguration.separator(Component.newline()), lines.stream()
+            .map(MiniMessage.miniMessage()::deserialize).toList());
     }
 
     @Override
