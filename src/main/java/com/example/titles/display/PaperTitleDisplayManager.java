@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.GameMode;
@@ -76,6 +77,11 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         } else {
             refreshDisplay(player);
         }
+        if (settings.get().announceToSelf()) {
+            // The owner usually can't see their own title (show_to_self: false), so tell them in chat.
+            player.sendMessage(MiniMessage.miniMessage().deserialize("<gray>New title: <title>",
+                Placeholder.component("title", MiniMessage.miniMessage().deserialize(text))));
+        }
     }
 
     @Override
@@ -94,19 +100,25 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
             return;
         }
         String ownerId = player.getUniqueId().toString();
+        TitlesSettings config = settings.get();
+        float offsetY = (float) config.displayOffsetY();
         TextDisplay display = player.getWorld().spawn(anchor(player), TextDisplay.class, d -> {
             d.text(MiniMessage.miniMessage().deserialize(text));
             d.setBillboard(Display.Billboard.CENTER);
             d.setSeeThrough(false);
             d.setDefaultBackground(false);
             d.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-            d.setTransformation(new Transformation(new Vector3f(0f, 0.4f, 0f), new AxisAngle4f(),
+            d.setTransformation(new Transformation(new Vector3f(0f, offsetY, 0f), new AxisAngle4f(),
                 new Vector3f(1f, 1f, 1f), new AxisAngle4f()));
             d.setTeleportDuration(FOLLOW_INTERPOLATION_TICKS);
             d.setPersistent(false);
             d.setTextOpacity((byte) (player.isSneaking() ? 60 : 255));
             d.getPersistentDataContainer().set(displayOwnerKey, PersistentDataType.STRING, ownerId);
         });
+        if (!config.showToSelf()) {
+            // Like the vanilla nametag: the owner never sees their own title (any camera mode).
+            player.hideEntity(plugin, display);
+        }
         displays.put(player.getUniqueId(), display);
         ensureFollowTask();
     }
@@ -122,18 +134,30 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     @Override
     public void removeDisplay(Player player) {
         TextDisplay display = displays.remove(player.getUniqueId());
-        if (display != null && display.isValid()) {
-            display.remove();
+        if (display != null) {
+            despawn(player, display);
         }
         stopFollowTaskIfIdle();
     }
 
+    /**
+     * Removes the entity, then clears the owner's hide-entry for it. Paper keeps hidden-entity
+     * entries per UUID until shown again; since every respawn is a new UUID, skipping this would
+     * grow that set for the rest of the session. Showing an already-removed entity sends nothing.
+     */
+    private void despawn(Player owner, TextDisplay display) {
+        if (display.isValid()) {
+            display.remove();
+        }
+        if (owner != null && !owner.canSee(display)) {
+            owner.showEntity(plugin, display);
+        }
+    }
+
     @Override
     public void cleanupAll() {
-        for (TextDisplay display : displays.values()) {
-            if (display.isValid()) {
-                display.remove();
-            }
+        for (var entry : displays.entrySet()) {
+            despawn(Bukkit.getPlayer(entry.getKey()), entry.getValue());
         }
         displays.clear();
         for (var world : Bukkit.getWorlds()) {
@@ -170,9 +194,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
             TextDisplay display = entry.getValue();
             Player player = Bukkit.getPlayer(entry.getKey());
             if (player == null || !player.isOnline() || player.isDead()) {
-                if (display.isValid()) {
-                    display.remove();
-                }
+                despawn(player, display);
                 it.remove();
                 continue;
             }

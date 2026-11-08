@@ -33,5 +33,17 @@ settings:
   # Rolling time window (in minutes) for consecutive streak tracking
   streak_window_minutes: 5
 
+display:
+  # Height of the title above the top of the player's hitbox, in blocks. The vanilla nametag sits at
+  # about +0.5, so 0.8 keeps the title just above it. Tune in-game; /title reload applies it live.
+  offset_y: 0.8
+
+  # Whether players can see their own floating title. Vanilla never shows you your own nametag, so the
+  # default is false. The server can't tell first- from third-person (F5), so this applies to both.
+  show_to_self: false
+
+  # Tell a player in chat when they earn a new title (useful when show_to_self is false).
+  announce_to_self: true
+
 fallbacks:
   default_title: "<gray>Unfortunate Soul</gray>"

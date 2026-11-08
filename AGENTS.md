@@ -77,3 +77,6 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
   teleports each display to `player.getLocation() + player.getHeight()` every tick with
   `setTeleportDuration(1)` for client-side smoothing; moves over 8 blocks or across worlds respawn it.
 - Titles are hidden while the player is in spectator mode.
+- Vertical offset is `display.offset_y` (default 0.8, clamped to [-2, 5]) above the hitbox top, clearing
+  the vanilla nametag (~+0.5). Owners don't see their own title (`display.show_to_self: false`, via
+  `Player#hideEntity`); every despawn path must call `despawn(...)` so the hide-entry is cleared.

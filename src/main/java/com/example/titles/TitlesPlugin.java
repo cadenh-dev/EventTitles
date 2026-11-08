@@ -46,7 +46,11 @@ public final class TitlesPlugin extends JavaPlugin {
         pm.registerEvents(new GameplayEventCollector(this, resolver, displayService, streaks), this);
 
         registerCommand("title", "Manage event titles", List.of("eventtitle"),
-            new TitleAdminCommand(this, displayService, llm, settings::get, this::reloadSettings));
+            new TitleAdminCommand(this, displayService, llm, settings::get, () -> {
+                reloadSettings();
+                // Display options (offset, show_to_self) are applied at spawn, so rebuild live displays.
+                Bukkit.getOnlinePlayers().forEach(displayService::refreshDisplay);
+            }));
 
         // StreakTracker is Bukkit-free and thread-safe, so purging off the main thread is allowed.
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, streakTracker::purgeExpired,
@@ -96,7 +100,10 @@ public final class TitlesPlugin extends JavaPlugin {
             c.getDouble(section + "temperature", c.getDouble("llm.temperature", provider.defaultTemperature())),
             c.getInt("settings.max_title_length", d.maxTitleLength()),
             Math.max(1, c.getInt("settings.streak_window_minutes", d.streakWindowMinutes())),
-            c.getString("fallbacks.default_title", d.defaultTitle()));
+            c.getString("fallbacks.default_title", d.defaultTitle()),
+            Math.clamp(c.getDouble("display.offset_y", d.displayOffsetY()), -2.0, 5.0),
+            c.getBoolean("display.show_to_self", d.showToSelf()),
+            c.getBoolean("display.announce_to_self", d.announceToSelf()));
         settings.set(loaded);
         if (loaded.llmEnabled() && loaded.effectiveApiKey() == null) {
             getLogger().warning("llm.enabled is true but no " + provider.configId() + " API key is configured (set "
