@@ -119,3 +119,13 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
 - `PaperTitleDisplayManager` records only titles that were actually applied (passed priority gating).
 - `/title history [player] [page]` (`titles.info`) resolves offline players via `Bukkit#getOfflinePlayerIfCached`
   (no web lookups), loads async, renders on the main thread.
+
+## 15. Title showcase
+- Players with `titles.show` can pin up to five entries from their own title history with `/title show`;
+  the pinned MiniMessage strings persist in PDC `eventtitles:showcase` as a JSON array. Empty showcases
+  remove the key. Corrupt JSON is treated as empty.
+- The floating display composes the active title first, then pinned titles through Bukkit-free
+  `api/ShowcaseLines`; duplicate visible text is skipped case-insensitively and output is capped by
+  `showcase.max_titles` (1–5). Multi-line display text uses MiniMessage components.
+- Showcase titles appear only above the player's head. Chat, tab list, history and new-title announcements
+  continue to use the active title only.

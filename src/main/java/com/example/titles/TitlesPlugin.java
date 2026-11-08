@@ -5,6 +5,7 @@ import com.example.titles.api.ChatSettings;
 import com.example.titles.api.LlmProvider;
 import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.StreakService;
+import com.example.titles.api.ShowcaseSettings;
 import com.example.titles.api.TabListSettings;
 import com.example.titles.api.TitleDisplayService;
 import com.example.titles.api.TitleResolverService;
@@ -137,7 +138,9 @@ public final class TitlesPlugin extends JavaPlugin {
             loadChat(c, d.chat()),
             loadTabList(c, d.tabList()),
             loadChatPrefix(c, d.chatPrefix()),
-            c.getInt("display.interpolation_ticks", d.displayInterpolationTicks()));
+            c.getInt("display.interpolation_ticks", d.displayInterpolationTicks()),
+            new ShowcaseSettings(c.getBoolean("showcase.enabled", d.showcase().enabled()),
+                c.getInt("showcase.max_titles", d.showcase().maxTitles())));
         settings.set(loaded);
         UpdateService.Settings ud = UpdateService.Settings.defaults();
         String repository = c.getString("updates.repository", ud.repository());

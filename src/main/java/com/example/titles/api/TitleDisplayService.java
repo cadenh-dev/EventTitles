@@ -22,6 +22,12 @@ public interface TitleDisplayService {
     /** Removes the title from PDC and despawns the display (admin action, ignores priority). */
     void clearPlayerTitle(Player player);
 
+    /** The player's pinned showcase titles (MiniMessage), possibly empty. Main thread. */
+    java.util.List<String> showcase(Player player);
+
+    /** Replaces the showcase (empty = clear), persists it, and refreshes the display. Main thread. */
+    void setShowcase(Player player, java.util.List<String> titles);
+
     /** Ensures exactly one display exists and is mounted, rebuilt from PDC state; no-op if no title. */
     void refreshDisplay(Player player);
 

@@ -32,7 +32,7 @@ import org.bukkit.plugin.Plugin;
 /** Administrative commands for setting, clearing, and inspecting event titles. */
 public final class TitleAdminCommand implements CommandExecutor, TabCompleter, BasicCommand {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
-    private static final List<String> SUBCOMMANDS = List.of("info", "history", "set", "clear", "reload", "testllm");
+    private static final List<String> SUBCOMMANDS = List.of("info", "history", "show", "set", "clear", "reload", "testllm");
     private static final List<String> PRIORITIES = List.of("10", "50", "90", "100");
 
     private final Plugin plugin;
@@ -69,14 +69,15 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
         return complete(args);
     }
 
-    /** Base permission to run /title at all ({@code info}); admin subcommands also need titles.admin. */
+    /** Subcommand permissions are checked in {@link #handle(CommandSender, String, String[])}. */
     @Override
     public String permission() {
-        return INFO_PERMISSION;
+        return null;
     }
 
     private static final String ADMIN_PERMISSION = "titles.admin";
     private static final String INFO_PERMISSION = "titles.info";
+    private static final String SHOW_PERMISSION = "titles.show";
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -98,10 +99,15 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             handleHistory(sender, args);
             return;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("show")) {
+            handleShow(sender, args);
+            return;
+        }
         if (!sender.hasPermission(ADMIN_PERMISSION)) {
             if (args.length == 0 && sender.hasPermission(INFO_PERMISSION)) {
                 sender.sendMessage(MINI_MESSAGE.deserialize(
-                    "<yellow>/<label> info [player]</yellow>  <yellow>/<label> history [player] [page]",
+                    "<yellow>/<label> info [player]</yellow>  <yellow>/<label> history [player] [page]</yellow>  "
+                        + "<yellow>/<label> show [#...|clear]</yellow>",
                     Placeholder.unparsed("label", label)));
                 return;
             }
@@ -126,6 +132,88 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             case "testllm" -> handleTestLlm(sender, args);
             default -> sendHelp(sender, label);
         }
+    }
+
+    /** /title show [history numbers...|clear]: pins titles from the caller's own history. */
+    private void handleShow(CommandSender sender, String[] args) {
+        if (!sender.hasPermission(SHOW_PERMISSION)) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>You do not have permission to use this command."));
+            return;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>This command is for players only."));
+            return;
+        }
+        if (history == null || !settings.get().showcase().enabled()) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<gray>Title showcase is turned off on this server."));
+            return;
+        }
+        if (args.length == 2 && args[1].equalsIgnoreCase("clear")) {
+            displays.setShowcase(player, List.of());
+            sender.sendMessage(MINI_MESSAGE.deserialize("<green>Your title showcase has been cleared."));
+            return;
+        }
+        if (args.length == 1) {
+            List<String> current = displays.showcase(player);
+            if (current.isEmpty()) {
+                sender.sendMessage(MINI_MESSAGE.deserialize("<gray>Your title showcase is empty."));
+            } else {
+                for (int i = 0; i < current.size(); i++) {
+                    try {
+                        sender.sendMessage(MINI_MESSAGE.deserialize("<dark_gray><n>.</dark_gray> <title>",
+                            Placeholder.unparsed("n", Integer.toString(i + 1)),
+                            Placeholder.component("title", MINI_MESSAGE.deserialize(current.get(i)))));
+                    } catch (RuntimeException malformed) {
+                        sender.sendMessage(MINI_MESSAGE.deserialize("<dark_gray><n>.</dark_gray> <gray>Invalid title</gray>",
+                            Placeholder.unparsed("n", Integer.toString(i + 1))));
+                    }
+                }
+            }
+            sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>Usage: /title show \\<#\\> [#...] or /title show clear"));
+            return;
+        }
+        if (args.length < 2 || args.length > settings.get().showcase().maxTitles() + 1) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Choose 1 to <max> history numbers with no duplicates.",
+                Placeholder.unparsed("max", Integer.toString(settings.get().showcase().maxTitles()))));
+            return;
+        }
+        List<Integer> indexes = new ArrayList<>();
+        java.util.Set<Integer> unique = new java.util.HashSet<>();
+        try {
+            for (int i = 1; i < args.length; i++) {
+                int index = Integer.parseInt(args[i]);
+                if (index < 1 || !unique.add(index)) {
+                    throw new IllegalArgumentException();
+                }
+                indexes.add(index);
+            }
+        } catch (IllegalArgumentException invalid) {
+            sender.sendMessage(MINI_MESSAGE.deserialize("<red>Use unique history numbers from 1 to the history size."));
+            return;
+        }
+        history.load(player.getUniqueId()).whenComplete((entries, error) -> {
+            if (!plugin.isEnabled()) {
+                return;
+            }
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!player.isOnline()) {
+                    return;
+                }
+                List<TitleHistory.Entry> loaded = entries == null ? List.of() : entries;
+                if (indexes.stream().anyMatch(index -> index > loaded.size())) {
+                    player.sendMessage(MINI_MESSAGE.deserialize("<red>Use unique history numbers from 1 to the history size."));
+                    return;
+                }
+                List<String> selected = indexes.stream().map(index -> loaded.get(index - 1).title()).toList();
+                displays.setShowcase(player, selected);
+                player.sendMessage(MINI_MESSAGE.deserialize("<green>Your title showcase is now:"));
+                for (int i = 0; i < selected.size(); i++) {
+                    player.sendMessage(MINI_MESSAGE.deserialize("<dark_gray><n>.</dark_gray> <title>",
+                        Placeholder.unparsed("n", Integer.toString(i + 1)),
+                        Placeholder.component("title", MINI_MESSAGE.deserialize(selected.get(i)))));
+                }
+            });
+        });
     }
 
     /** /title history [player] [page]: a player's past titles, newest first; works for offline players. */
@@ -420,6 +508,9 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
             }
             return matching(names, args[1]);
         }
+        if (args.length == 2 && args[0].equalsIgnoreCase("show")) {
+            return matching(List.of("clear", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"), args[1]);
+        }
         if (args.length == 3 && args[0].equalsIgnoreCase("set")) {
             return matching(PRIORITIES, args[2]);
         }
@@ -440,6 +531,8 @@ public final class TitleAdminCommand implements CommandExecutor, TabCompleter, B
         sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> info [player]",
             Placeholder.unparsed("label", label)));
         sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> history [player] [page]",
+            Placeholder.unparsed("label", label)));
+        sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> show [#...|clear]",
             Placeholder.unparsed("label", label)));
         sender.sendMessage(MINI_MESSAGE.deserialize("<yellow>/<label> set \\<player> \\<priority> \\<miniMessage...>",
             Placeholder.unparsed("label", label)));
