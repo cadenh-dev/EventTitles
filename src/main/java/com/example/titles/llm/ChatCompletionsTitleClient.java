@@ -197,7 +197,7 @@ public final class ChatCompletionsTitleClient implements LlmTitleGenerator {
             return null;
         }
         String comment = TitleText.sanitizeLlm(element.getAsString().trim().replace('\n', ' '), true);
-        if (comment.isBlank() || comment.indexOf('§') >= 0 || LEGACY_COLOR.matcher(comment).find()
+        if (comment.isBlank() || comment.indexOf('\u00a7') >= 0 || LEGACY_COLOR.matcher(comment).find()
             || TitleText.stripTags(comment.replace(AwardedTitle.PLAYER_TOKEN, "")).isBlank()) {
             return null;
         }

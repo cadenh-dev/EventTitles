@@ -34,7 +34,7 @@ class StaticTitleRegistryTest {
         }
         for (String title : titles) {
             assertFalse(TitleText.stripTags(title).isBlank(), title);
-            assertFalse(title.contains("§"), title);
+            assertFalse(title.contains("\u00a7"), title);
         }
     }
 
