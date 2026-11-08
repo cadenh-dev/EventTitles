@@ -200,7 +200,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
             currentTitle(player).ifPresentOrElse(t -> titleCache.put(player.getUniqueId(), t),
                 () -> titleCache.remove(player.getUniqueId()));
         }
-        List<String> pinned = showcase(player);
+        // Pins only count while the showcase feature is on; otherwise behave exactly as before.
+        List<String> pinned = settings.get().showcase().enabled() ? showcase(player) : List.of();
         if (!player.isOnline() || player.isDead() || (text == null && pinned.isEmpty())
             || player.getGameMode() == GameMode.SPECTATOR) { // spectators are invisible; don't out them
             return;
@@ -230,8 +231,9 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     }
 
     private Component displayText(Player player, String activeTitleText) {
-        int maxLines = settings.get().showcase().enabled() ? settings.get().showcase().maxTitles() : 1;
-        List<String> lines = ShowcaseLines.compose(activeTitleText, showcase(player), maxLines);
+        boolean enabled = settings.get().showcase().enabled();
+        List<String> lines = ShowcaseLines.compose(activeTitleText, enabled ? showcase(player) : List.of(),
+            enabled ? settings.get().showcase().maxTitles() : 1);
         return Component.join(JoinConfiguration.separator(Component.newline()), lines.stream()
             .map(MiniMessage.miniMessage()::deserialize).toList());
     }
