@@ -99,6 +99,7 @@ public final class DisplayLifecycleListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         displays.removeDisplay(event.getPlayer());
+        displays.forgetPlayer(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

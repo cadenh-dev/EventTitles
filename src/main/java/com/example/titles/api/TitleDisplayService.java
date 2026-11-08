@@ -7,6 +7,15 @@ public interface TitleDisplayService {
     /** Applies {@code title} if its priority is >= the active priority; otherwise ignores it. */
     void setPlayerTitle(Player player, AwardedTitle title);
 
+    /**
+     * Thread-safe (any thread, e.g. async chat): the player's active title as last seen on the main
+     * thread. Empty for players with no title or who are offline.
+     */
+    java.util.Optional<AwardedTitle> cachedTitle(java.util.UUID playerId);
+
+    /** Drops per-player caches when the player leaves (main thread). PDC is untouched. */
+    void forgetPlayer(Player player);
+
     /** The player's active title as stored in PDC (text, priority and reason; no comment). */
     java.util.Optional<AwardedTitle> currentTitle(Player player);
 

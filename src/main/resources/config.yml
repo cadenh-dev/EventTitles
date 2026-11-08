@@ -45,6 +45,11 @@ display:
   # Tell a player in chat when they earn a new title (useful when show_to_self is false).
   announce_to_self: true
 
+  # Client-side smoothing (ticks) for each move as the title follows its player. 3 matches how clients
+  # smooth other players' movement, so the title stays in step with the body and nametag. 0 = no
+  # smoothing (snappy but jittery); higher = smoother but trails behind.
+  interpolation_ticks: 3
+
 tab_list:
   # Show each player's title next to their name in the tab (player list) screen.
   # Note: tab-list plugins like TAB or other nametag plugins may overwrite this name.
@@ -54,6 +59,22 @@ tab_list:
   format: "<white><player></white> <dark_gray>|</dark_gray> <title>"
 
   # Visible characters of the title shown in tab (keeps the list narrow). -1 = no limit.
+  max_title_length: 24
+
+chat_prefix:
+  # Show the sender's title on their own chat messages; hover the title for why they got it.
+  enabled: true
+
+  # "replace": the whole line uses the format below, e.g.  Creeper Magnet Caden: hello
+  # "prefix":  the format is put in front of the normal line, e.g.  [Creeper Magnet] <Caden> hello
+  #            Use prefix if another plugin (EssentialsChat, LuckPerms chat, etc.) formats chat.
+  mode: "replace"
+
+  # replace needs <title>, <player> and <message>; prefix needs <title>.
+  format: "<title> <white><player></white><dark_gray>:</dark_gray> <message>"
+  # format: "<dark_gray>[</dark_gray><title><dark_gray>]</dark_gray> "   # example for prefix mode
+
+  # Visible characters of the title shown in chat. -1 = no limit.
   max_title_length: 24
 
 chat:

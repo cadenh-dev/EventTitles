@@ -24,11 +24,18 @@ public record TitlesSettings(
     boolean showToSelf,
     boolean announceToSelf,
     ChatSettings chat,
-    TabListSettings tabList
+    TabListSettings tabList,
+    ChatPrefixSettings chatPrefix,
+    int displayInterpolationTicks
 ) {
     public static final String PLACEHOLDER_KEY = "sk-your-deepseek-key-here";
     /** Blocks above the top of the player's hitbox; vanilla draws the nametag at about +0.5. */
     public static final double DEFAULT_DISPLAY_OFFSET_Y = 0.8;
+    /**
+     * Client-side smoothing for each follow move. Remote players are interpolated over ~3 ticks by the
+     * client, so matching that keeps the title moving in step with the player's body and nametag.
+     */
+    public static final int DEFAULT_DISPLAY_INTERPOLATION_TICKS = 3;
 
     public TitlesSettings {
         if (llmProvider == null) {
@@ -40,16 +47,20 @@ public record TitlesSettings(
         if (tabList == null) {
             tabList = TabListSettings.defaults();
         }
+        if (chatPrefix == null) {
+            chatPrefix = ChatPrefixSettings.defaults();
+        }
+        displayInterpolationTicks = Math.clamp(displayInterpolationTicks, 0, 10);
     }
 
-    /** Tab-list options at their defaults. */
+    /** Tab-list, chat-prefix and interpolation options at their defaults. */
     public TitlesSettings(boolean llmEnabled, LlmProvider llmProvider, String llmEndpoint, String llmModel,
                           String llmApiKey, int llmTimeoutSeconds, double llmTemperature, int maxTitleLength,
                           int streakWindowMinutes, String defaultTitle, double displayOffsetY, boolean showToSelf,
                           boolean announceToSelf, ChatSettings chat) {
         this(llmEnabled, llmProvider, llmEndpoint, llmModel, llmApiKey, llmTimeoutSeconds, llmTemperature,
             maxTitleLength, streakWindowMinutes, defaultTitle, displayOffsetY, showToSelf, announceToSelf, chat,
-            TabListSettings.defaults());
+            TabListSettings.defaults(), ChatPrefixSettings.defaults(), DEFAULT_DISPLAY_INTERPOLATION_TICKS);
     }
 
     /** Display and chat options at their defaults (offset 0.8, hidden from owner, owner notified). */
@@ -58,7 +69,8 @@ public record TitlesSettings(
                           int streakWindowMinutes, String defaultTitle) {
         this(llmEnabled, llmProvider, llmEndpoint, llmModel, llmApiKey, llmTimeoutSeconds, llmTemperature,
             maxTitleLength, streakWindowMinutes, defaultTitle, DEFAULT_DISPLAY_OFFSET_Y, false, true,
-            ChatSettings.defaults(), TabListSettings.defaults());
+            ChatSettings.defaults(), TabListSettings.defaults(), ChatPrefixSettings.defaults(),
+            DEFAULT_DISPLAY_INTERPOLATION_TICKS);
     }
 
     public static TitlesSettings defaults() {

@@ -1,5 +1,6 @@
 package com.example.titles;
 
+import com.example.titles.api.ChatPrefixSettings;
 import com.example.titles.api.ChatSettings;
 import com.example.titles.api.LlmProvider;
 import com.example.titles.api.LlmTitleGenerator;
@@ -14,6 +15,7 @@ import com.example.titles.display.PaperTitleDisplayManager;
 import com.example.titles.engine.HybridTitleResolver;
 import com.example.titles.engine.StaticTitleRegistry;
 import com.example.titles.engine.StreakTracker;
+import com.example.titles.listeners.ChatTitleListener;
 import com.example.titles.listeners.CommentaryBroadcaster;
 import com.example.titles.listeners.GameplayEventCollector;
 import com.example.titles.llm.ChatCompletionsTitleClient;
@@ -46,6 +48,7 @@ public final class TitlesPlugin extends JavaPlugin {
 
         var pm = getServer().getPluginManager();
         pm.registerEvents(new DisplayLifecycleListener(this, displayService), this);
+        pm.registerEvents(new ChatTitleListener(displayService, settings::get, getLogger()), this);
         pm.registerEvents(new GameplayEventCollector(this, resolver, displayService, streaks,
             new CommentaryBroadcaster(settings::get)), this);
 
@@ -109,7 +112,9 @@ public final class TitlesPlugin extends JavaPlugin {
             c.getBoolean("display.show_to_self", d.showToSelf()),
             c.getBoolean("display.announce_to_self", d.announceToSelf()),
             loadChat(c, d.chat()),
-            loadTabList(c, d.tabList()));
+            loadTabList(c, d.tabList()),
+            loadChatPrefix(c, d.chatPrefix()),
+            c.getInt("display.interpolation_ticks", d.displayInterpolationTicks()));
         settings.set(loaded);
         if (loaded.llmEnabled() && loaded.effectiveApiKey() == null) {
             getLogger().warning("llm.enabled is true but no " + provider.configId() + " API key is configured (set "
@@ -117,6 +122,26 @@ public final class TitlesPlugin extends JavaPlugin {
         } else if (loaded.llmEnabled()) {
             getLogger().info("LLM provider: " + provider.configId() + " (" + loaded.llmModel() + ")");
         }
+    }
+
+    private ChatPrefixSettings loadChatPrefix(FileConfiguration c, ChatPrefixSettings d) {
+        String modeName = c.getString("chat_prefix.mode", d.mode().name());
+        ChatPrefixSettings.Mode mode = ChatPrefixSettings.Mode.fromConfig(modeName).orElseGet(() -> {
+            getLogger().warning("Unknown chat_prefix.mode '" + modeName + "'; expected replace or prefix. Using replace.");
+            return ChatPrefixSettings.Mode.REPLACE;
+        });
+        String defaultFormat = mode == ChatPrefixSettings.Mode.REPLACE
+            ? ChatPrefixSettings.DEFAULT_REPLACE_FORMAT : ChatPrefixSettings.DEFAULT_PREFIX_FORMAT;
+        String format = c.getString("chat_prefix.format", defaultFormat);
+        if (!ChatPrefixSettings.isValidFormat(mode, format)) {
+            getLogger().warning("chat_prefix.format is invalid for mode " + mode.name().toLowerCase()
+                + " (replace needs <title>, <player> and <message>; prefix needs <title>); using the default.");
+        }
+        return new ChatPrefixSettings(
+            c.getBoolean("chat_prefix.enabled", d.enabled()),
+            mode,
+            format,
+            c.getInt("chat_prefix.max_title_length", d.maxTitleLength()));
     }
 
     private TabListSettings loadTabList(FileConfiguration c, TabListSettings d) {

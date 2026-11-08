@@ -95,3 +95,10 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
 - It is persisted in PDC `eventtitles:active_reason` and rendered only via `display/TitleHover`
   (`Component.text`, never MiniMessage). Every code path that awards a title should attach one.
 - `/title info [player]` (permission `titles.info`, default true) shows the current title with hover.
+
+## 12. Chat titles
+- `listeners/ChatTitleListener` wraps the `AsyncChatEvent` renderer at HIGHEST (mode `replace` or
+  `prefix`). It runs OFF the main thread, so it may only read `TitleDisplayService#cachedTitle` (a
+  ConcurrentHashMap mirror of PDC maintained on the main thread) — never PDC or other player state.
+- `display.interpolation_ticks` (default 3, clamped 0–10) matches the client's remote-player smoothing so
+  the follow-loop title moves in step with the player.

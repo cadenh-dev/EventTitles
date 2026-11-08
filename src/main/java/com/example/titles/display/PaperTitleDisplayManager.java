@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -43,8 +44,6 @@ import org.joml.Vector3f;
  * movement ({@link Display#setTeleportDuration}).
  */
 public final class PaperTitleDisplayManager implements TitleDisplayService {
-    /** Client-side interpolation, in ticks, for each per-tick follow teleport. */
-    private static final int FOLLOW_INTERPOLATION_TICKS = 1;
     /** Movements longer than this (blocks) are real teleports: respawn instead of gliding across. */
     private static final double SNAP_DISTANCE = 8.0;
     private static final double SNAP_DISTANCE_SQUARED = SNAP_DISTANCE * SNAP_DISTANCE;
@@ -59,6 +58,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
     private final Map<UUID, TextDisplay> displays = new HashMap<>();
     /** Players whose tab-list name this plugin has set (so only those are reset). */
     private final Set<UUID> tabNamed = new HashSet<>();
+    /** Thread-safe mirror of each online player's PDC title, for async readers (chat rendering). */
+    private final Map<UUID, AwardedTitle> titleCache = new ConcurrentHashMap<>();
     private BukkitTask followTask;
 
     public PaperTitleDisplayManager(Plugin plugin, Supplier<TitlesSettings> settings) {
@@ -84,6 +85,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         } else {
             player.getPersistentDataContainer().remove(activeReasonKey);
         }
+        titleCache.put(player.getUniqueId(), new AwardedTitle(text, title.priority(), title.fromLlm(), null,
+            title.reason()));
 
         TextDisplay display = displays.get(player.getUniqueId());
         if (display != null && display.isValid() && display.getWorld().equals(player.getWorld())) {
@@ -98,6 +101,17 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
                 "<gray>New title: <title> <dark_gray>(hover for why)</dark_gray>",
                 Placeholder.component("title", TitleHover.titleWithReason(text, title.reason()))));
         }
+    }
+
+    @Override
+    public Optional<AwardedTitle> cachedTitle(UUID playerId) {
+        return Optional.ofNullable(titleCache.get(playerId));
+    }
+
+    @Override
+    public void forgetPlayer(Player player) {
+        titleCache.remove(player.getUniqueId());
+        tabNamed.remove(player.getUniqueId());
     }
 
     @Override
@@ -117,6 +131,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         player.getPersistentDataContainer().remove(activeTitleKey);
         player.getPersistentDataContainer().remove(activePriorityKey);
         player.getPersistentDataContainer().remove(activeReasonKey);
+        titleCache.remove(player.getUniqueId());
         removeDisplay(player);
         updateTabName(player, null);
     }
@@ -127,6 +142,8 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
         String text = player.getPersistentDataContainer().get(activeTitleKey, PersistentDataType.STRING);
         if (player.isOnline()) {
             updateTabName(player, text); // tab list keeps the title even while dead or spectating
+            currentTitle(player).ifPresentOrElse(t -> titleCache.put(player.getUniqueId(), t),
+                () -> titleCache.remove(player.getUniqueId()));
         }
         if (!player.isOnline() || player.isDead() || text == null
             || player.getGameMode() == GameMode.SPECTATOR) { // spectators are invisible; don't out them
@@ -143,7 +160,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
             d.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
             d.setTransformation(new Transformation(new Vector3f(0f, offsetY, 0f), new AxisAngle4f(),
                 new Vector3f(1f, 1f, 1f), new AxisAngle4f()));
-            d.setTeleportDuration(FOLLOW_INTERPOLATION_TICKS);
+            d.setTeleportDuration(config.displayInterpolationTicks()); // match remote-player smoothing
             d.setPersistent(false);
             d.setTextOpacity((byte) (player.isSneaking() ? 60 : 255));
             d.getPersistentDataContainer().set(displayOwnerKey, PersistentDataType.STRING, ownerId);
@@ -208,6 +225,7 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
             }
         }
         tabNamed.clear();
+        titleCache.clear();
         stopFollowTaskIfIdle();
     }
 
