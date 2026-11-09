@@ -7,6 +7,9 @@ import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.TitleResolverService;
 import com.example.titles.api.TitleText;
 import com.example.titles.api.TitlesSettings;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -24,6 +27,8 @@ public final class HybridTitleResolver implements TitleResolverService {
     static final int DEFAULT_TITLE_PRIORITY = 5;
     /** Events common enough to spam the LLM use hardcoded titles until they happen this often in a row. */
     static final int FREQUENT_EVENT_STREAK_THRESHOLD = 10;
+    /** Upper bound on remembered AI titles (LRU); older entries are regenerated when needed. */
+    static final int LLM_CACHE_LIMIT = 512;
     private static final Set<EventCategory> FREQUENT_EVENT_CATEGORIES =
         Set.of(EventCategory.MINING, EventCategory.DEATH_MOB, EventCategory.DEATH_ENV,
             EventCategory.SHENANIGANS);
@@ -31,6 +36,14 @@ public final class HybridTitleResolver implements TitleResolverService {
     private final StaticTitleRegistry registry;
     private final LlmTitleGenerator llm;
     private final Supplier<TitlesSettings> settings;
+    /** AI titles remembered by event signature so repeats reuse them instead of calling the LLM again. */
+    private final Map<String, AwardedTitle> llmCache = Collections.synchronizedMap(
+        new LinkedHashMap<>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, AwardedTitle> eldest) {
+                return size() > LLM_CACHE_LIMIT;
+            }
+        });
 
     public HybridTitleResolver(StaticTitleRegistry registry, LlmTitleGenerator llm, Supplier<TitlesSettings> settings) {
         this.registry = registry;
@@ -69,6 +82,13 @@ public final class HybridTitleResolver implements TitleResolverService {
             return CompletableFuture.completedFuture(fallback(context, match, config));
         }
 
+        // Reuse an AI title already generated for the same kind of event (per provider/model).
+        String cacheKey = llmCacheKey(context, config);
+        AwardedTitle cached = llmCache.get(cacheKey);
+        if (cached != null) {
+            return CompletableFuture.completedFuture(Optional.of(cachedTitle(context, match, config, cached)));
+        }
+
         // Tier 2: LLM, with a safety timeout on top of the client's own.
         CompletableFuture<Optional<AwardedTitle>> request;
         try {
@@ -94,10 +114,30 @@ public final class HybridTitleResolver implements TitleResolverService {
                 AwardedTitle lifted = title
                     .withText(TitleText.truncateVisible(title.miniMessageText(), config.maxTitleLength()))
                     .withPriority(priority);
-                return Optional.of(lifted.withReason(TitleReasons.forLlm(context, config.llmProvider(),
-                    config.llmModel(), match.map(StaticTitleRegistry.StaticMatch::trigger).orElse(null), lifted)));
+                AwardedTitle withReason = lifted.withReason(TitleReasons.forLlm(context, config.llmProvider(),
+                    config.llmModel(), match.map(StaticTitleRegistry.StaticMatch::trigger).orElse(null), lifted));
+                llmCache.put(cacheKey, withReason);
+                return Optional.of(withReason);
             })
             .exceptionally(t -> fallback(context, match, config));
+    }
+
+    /** Stable signature of the event facts that shape an AI title (player identity/time excluded). */
+    private static String llmCacheKey(EventContext ctx, TitlesSettings config) {
+        return config.llmProvider().configId() + '\u0000' + config.llmModel() + '\u0000'
+            + ctx.category().name() + '\u0000' + ctx.primarySubject() + '\u0000' + ctx.biome() + '\u0000'
+            + ctx.heldItem() + '\u0000' + ctx.armorSummary();
+    }
+
+    /** Reuses a cached AI title, re-lifting priority and refreshing the hover reason for this event. */
+    private static AwardedTitle cachedTitle(EventContext ctx, Optional<StaticTitleRegistry.StaticMatch> match,
+                                            TitlesSettings config, AwardedTitle cached) {
+        int priority = Math.max(cached.priority(), match.map(m -> m.title().priority()).orElse(1));
+        AwardedTitle title = cached
+            .withText(TitleText.truncateVisible(cached.miniMessageText(), config.maxTitleLength()))
+            .withPriority(priority);
+        return title.withReason(TitleReasons.forLlm(ctx, config.llmProvider(), config.llmModel(),
+            match.map(StaticTitleRegistry.StaticMatch::trigger).orElse(null), title));
     }
 
     private static AwardedTitle staticTitle(EventContext ctx, StaticTitleRegistry.StaticMatch match) {
