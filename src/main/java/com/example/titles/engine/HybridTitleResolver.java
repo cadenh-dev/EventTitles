@@ -122,11 +122,45 @@ public final class HybridTitleResolver implements TitleResolverService {
             .exceptionally(t -> fallback(context, match, config));
     }
 
-    /** Stable signature of the event facts that shape an AI title (player identity/time excluded). */
+    /**
+     * Stable signature of the event facts that shape an AI title (player identity/time excluded).
+     * Streaks are bucketed and only category-relevant metadata is included, so a title generated for
+     * "first creeper death" is never reused for "10th creeper death" or a different death cause.
+     */
     private static String llmCacheKey(EventContext ctx, TitlesSettings config) {
+        String streak = ctx.streakCount() >= FREQUENT_EVENT_STREAK_THRESHOLD
+            ? FREQUENT_EVENT_STREAK_THRESHOLD + "+" : Integer.toString(ctx.streakCount());
+        String details = switch (ctx.category()) {
+            case DEATH_ENV -> metadata(ctx, "world") + '|' + metadata(ctx, "bed_explosion")
+                + '|' + metadata(ctx, "totem_held");
+            case DEATH_MOB -> metadata(ctx, "world") + '|' + metadata(ctx, "totem_held");
+            case CLUTCH_SURVIVAL -> metadata(ctx, "health_after") + '|' + metadata(ctx, "world");
+            case MINING -> metadata(ctx, "y").isEmpty() ? "" : yBucket(metadata(ctx, "y"));
+            default -> "";
+        };
         return config.llmProvider().configId() + '\u0000' + config.llmModel() + '\u0000'
             + ctx.category().name() + '\u0000' + ctx.primarySubject() + '\u0000' + ctx.biome() + '\u0000'
-            + ctx.heldItem() + '\u0000' + ctx.armorSummary();
+            + ctx.heldItem() + '\u0000' + ctx.armorSummary() + '\u0000' + streak + '\u0000' + details;
+    }
+
+    /** Value of one {@code key=value} pair in {@link EventContext#extraMetadata()}, or "". */
+    private static String metadata(EventContext ctx, String key) {
+        String prefix = key + "=";
+        for (String part : ctx.extraMetadata().split(";")) {
+            if (part.startsWith(prefix)) {
+                return part.substring(prefix.length()).trim();
+            }
+        }
+        return "";
+    }
+
+    /** Coarse Y band: titles about deep mining should not be reused near the surface. */
+    private static String yBucket(String raw) {
+        try {
+            return Integer.parseInt(raw) <= -50 ? "deep" : "shallow";
+        } catch (NumberFormatException invalid) {
+            return raw;
+        }
     }
 
     /** Reuses a cached AI title, re-lifting priority and refreshing the hover reason for this event. */
