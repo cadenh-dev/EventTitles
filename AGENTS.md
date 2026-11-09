@@ -116,7 +116,8 @@ Shared API lives in `com.example.titles.api` and is owned by the Lead Architect 
 - `api/TitleHistory` + `history/JsonTitleHistoryStore` (Bukkit-free): `plugins/EventTitles/history/<uuid>.json`,
   newest first, capped by `history.max_entries`. All file I/O runs on ONE dedicated thread (ordered, never the
   main thread); writes are temp-file + atomic move; file names come only from UUIDs.
-- `PaperTitleDisplayManager` records only titles that were actually applied (passed priority gating).
+- `PaperTitleDisplayManager` records every generated title to history, including ones that did not replace
+  the active title (failed priority gating); only the active title/display/PDC are unchanged in that case.
 - `/title history [player] [page]` (`titles.info`) resolves offline players via `Bukkit#getOfflinePlayerIfCached`
   (no web lookups), loads async, renders on the main thread.
 

@@ -1,12 +1,14 @@
 package com.example.titles.engine;
 
 import com.example.titles.api.AwardedTitle;
+import com.example.titles.api.EventCategory;
 import com.example.titles.api.EventContext;
 import com.example.titles.api.LlmTitleGenerator;
 import com.example.titles.api.TitleResolverService;
 import com.example.titles.api.TitleText;
 import com.example.titles.api.TitlesSettings;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -20,6 +22,11 @@ public final class HybridTitleResolver implements TitleResolverService {
     /** Rules whose main priority is at least this resolve instantly without the LLM (bosses). */
     static final int SHORT_CIRCUIT_PRIORITY = 90;
     static final int DEFAULT_TITLE_PRIORITY = 5;
+    /** Events common enough to spam the LLM use hardcoded titles until they happen this often in a row. */
+    static final int FREQUENT_EVENT_STREAK_THRESHOLD = 10;
+    private static final Set<EventCategory> FREQUENT_EVENT_CATEGORIES =
+        Set.of(EventCategory.MINING, EventCategory.DEATH_MOB, EventCategory.DEATH_ENV,
+            EventCategory.SHENANIGANS);
 
     private final StaticTitleRegistry registry;
     private final LlmTitleGenerator llm;
@@ -53,6 +60,12 @@ public final class HybridTitleResolver implements TitleResolverService {
             return CompletableFuture.completedFuture(match.map(m -> staticTitle(context, m)));
         }
         if (!config.llmEnabled()) {
+            return CompletableFuture.completedFuture(fallback(context, match, config));
+        }
+        // Frequent events (mining, deaths) stay on hardcoded titles unless they happen many times in
+        // a row, so routine events neither spam the LLM nor depend on its priority to be seen.
+        if (FREQUENT_EVENT_CATEGORIES.contains(context.category())
+            && context.streakCount() < FREQUENT_EVENT_STREAK_THRESHOLD) {
             return CompletableFuture.completedFuture(fallback(context, match, config));
         }
 

@@ -51,13 +51,14 @@ class TitleReasonsTest {
             c -> CompletableFuture.completedFuture(Optional.of(
                 new AwardedTitle("<red>Boom</red>", 20, true, "<player> went boom"))),
             TitlesSettings::defaults);
-        AwardedTitle t = resolver.resolve(ctx(EventCategory.DEATH_MOB, "CREEPER", "PLAINS", "IRON_HELMET", 1, ""))
+        AwardedTitle t = resolver.resolve(ctx(EventCategory.DEATH_MOB, "CREEPER", "PLAINS", "IRON_HELMET", 10, ""))
             .get(4, TimeUnit.SECONDS).orElseThrow();
         assertEquals("<player> went boom", t.comment());
-        assertEquals(30, t.priority());
+        assertEquals(80, t.priority());
         assertNotNull(t.reason());
-        assertTrue(t.reason().startsWith("Why: Killed by a Creeper (custom title by DeepSeek)"), t.reason());
-        assertTrue(t.reason().endsWith("Source: DeepSeek (deepseek-chat) · Priority 30"), t.reason());
+        assertTrue(t.reason().startsWith("Why: Killed by a Creeper 3+ times in a row (custom title by DeepSeek)"),
+            t.reason());
+        assertTrue(t.reason().endsWith("Source: DeepSeek (deepseek-chat) · Priority 80"), t.reason());
     }
 
     @Test

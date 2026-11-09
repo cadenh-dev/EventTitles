@@ -93,11 +93,17 @@ public final class PaperTitleDisplayManager implements TitleDisplayService {
 
     @Override
     public void setPlayerTitle(Player player, AwardedTitle title, boolean decays) {
+        String text = TitleText.truncateVisible(title.miniMessageText(), settings.get().maxTitleLength());
         // Protection of the current title wears off over settings.protection_decay_minutes.
         if (!TitlePriority.canReplace(title.priority(), effectivePriority(player))) {
+            // A title is still generated (and logged) even when it cannot replace the active one, so
+            // history/showcase reflect every event instead of skipping lower-priority titles.
+            if (history != null) {
+                history.record(player.getUniqueId(), new TitleHistory.Entry(text, title.priority(),
+                    TitleHistory.sourceOf(title), title.reason(), System.currentTimeMillis()));
+            }
             return;
         }
-        String text = TitleText.truncateVisible(title.miniMessageText(), settings.get().maxTitleLength());
         player.getPersistentDataContainer().set(activeTitleKey, PersistentDataType.STRING, text);
         player.getPersistentDataContainer().set(activePriorityKey, PersistentDataType.INTEGER, title.priority());
         player.getPersistentDataContainer().set(activeSinceKey, PersistentDataType.LONG, System.currentTimeMillis());
